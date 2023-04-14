@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
@@ -48,6 +48,9 @@
 		</Reference>
 		<Reference Include="dependencies\$(TargetSptAkiVersion)\Sirenix.Serialization.dll">
 			<HintPath>dependencies\$(TargetSptAkiVersion)\Sirenix.Serialization.dll</HintPath>
+		</Reference>
+		<Reference Include="dependencies\$(TargetSptAkiVersion)\UnityEngine.UI.dll">
+			<HintPath>dependencies\$(TargetSptAkiVersion)\UnityEngine.UI.dll</HintPath>
 		</Reference>
 	</ItemGroup>
 </Project>

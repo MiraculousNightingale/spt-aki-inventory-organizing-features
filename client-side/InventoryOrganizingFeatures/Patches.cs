@@ -12,19 +12,22 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using UnityEngine;
+using UnityEngine.UI;
 using static InventoryOrganizingFeatures.PluginConstants;
 
 namespace InventoryOrganizingFeatures
 {
     internal static class PluginConstants
     {
-        public const string DragLockTag = "@dl";
+        public const string MoveLockTag = "@ml";
         public const string SortLockTag = "@sl";
         public const string OrganizeTag = "@o";
         public static ISession Session { get; set; }
-        public static bool ItemIsDragLocked(Item item)
+        public static Button OrganizeButton { get; set; }
+        public static bool ItemIsMoveLocked(Item item)
         {
-            return item.TryGetItemComponent(out TagComponent tagComponent) && tagComponent.Name.Contains(DragLockTag);
+            return item.TryGetItemComponent(out TagComponent tagComponent) && tagComponent.Name.Contains(MoveLockTag);
         }
 
         public static bool ItemIsSortLocked(Item item)
@@ -36,14 +39,13 @@ namespace InventoryOrganizingFeatures
     {
         protected override MethodBase GetTargetMethod()
         {
-            return AccessTools.Method(typeof(EditTagWindow), "Show", new Type[] {typeof(TagComponent), typeof(Action), typeof(Action), typeof(Action<string, int>) });
+            return AccessTools.Method(typeof(EditTagWindow), "Show", new Type[] { typeof(TagComponent), typeof(Action), typeof(Action), typeof(Action<string, int>) });
         }
 
         [PatchPrefix]
-        private static void PatchPrefix(ref EditTagWindow __instance)
+        private static void PatchPrefix(ref EditTagWindow __instance, ref ValidationInputField ____tagInput)
         {
-            var textInput = AccessTools.Field(__instance.GetType(), "_tagInput").GetValue(__instance) as ValidationInputField;
-            textInput.characterLimit = 256;
+            ____tagInput.characterLimit = 256;
         }
     }
     internal class PostEditTagWindowClose : ModulePatch
@@ -55,12 +57,11 @@ namespace InventoryOrganizingFeatures
         }
 
         [PatchPostfix]
-        private static void PatchPostFix(ref EditTagWindow __instance)
+        private static void PatchPostFix(ref EditTagWindow __instance, ref ValidationInputField ____tagInput)
         {
-            var textInput = AccessTools.Field(__instance.GetType(), "_tagInput").GetValue(__instance) as ValidationInputField;
-            bool isSortLocked = textInput.text.Contains(SortLockTag);
-            bool isDragLocked = textInput.text.Contains(DragLockTag);
-            bool isOrganized = textInput.text.Contains(OrganizeTag);
+            bool isSortLocked = ____tagInput.text.Contains(SortLockTag);
+            bool isDragLocked = ____tagInput.text.Contains(MoveLockTag);
+            bool isOrganized = ____tagInput.text.Contains(OrganizeTag);
             string notifMsg = "";
             if (isSortLocked) notifMsg += "This container is Sort Locked.";
             if (notifMsg.Length > 0) notifMsg += "\n";
@@ -68,8 +69,8 @@ namespace InventoryOrganizingFeatures
             if (notifMsg.Length > 0) notifMsg += "\n";
             if (isOrganized)
             {
-                Regex regex = new Regex(OrganizeTag + " \\b[a-zA-Z]{2,}\\b");
-                string organizeStr = regex.Match(textInput.text).Value;
+                Regex regex = new(OrganizeTag + " \\b[a-zA-Z]{2,}\\b");
+                string organizeStr = regex.Match(____tagInput.text).Value;
                 if (organizeStr != string.Empty)
                 {
                     Logger.LogError("Is not empty");
@@ -198,7 +199,7 @@ namespace InventoryOrganizingFeatures
             var sortClassType = ReflectionHelper.FindClassTypeByMethodNames(sortClassMethods);
             var callerClassType = new StackTrace().GetFrame(2).GetMethod().ReflectedType;
             NotificationManagerClass.DisplayMessageNotification($"{sortClassType.Name}\n{callerClassType.Name} - caller Class");
-            if (new StackTrace().GetFrame(2).GetMethod().ReflectedType != sortClassType) return true;
+            if (callerClassType != sortClassType) return true;
 
             // If method is being called from the static SortClass - run patched code instead.
             if (!__instance.ItemCollection.Any())
@@ -215,7 +216,6 @@ namespace InventoryOrganizingFeatures
             NotificationManagerClass.DisplayMessageNotification("Ran the RemoveAll patch");
             return false;
         }
-
     }
 
     internal class PreItemViewOnBeginDrag : ModulePatch
@@ -228,7 +228,22 @@ namespace InventoryOrganizingFeatures
         [PatchPrefix]
         private static bool PatchPrefix(ref ItemView __instance)
         {
-            if (ItemIsDragLocked(__instance.Item)) return false;
+            if (ItemIsMoveLocked(__instance.Item)) return false;
+            return true;
+        }
+    }
+
+    internal class PreItemViewOnPointerDown : ModulePatch
+    {
+        protected override MethodBase GetTargetMethod()
+        {
+            return AccessTools.Method(typeof(ItemView), "OnPointerDown");
+        }
+
+        [PatchPrefix]
+        private static bool PatchPrefix(ref ItemView __instance)
+        {
+            if (ItemIsMoveLocked(__instance.Item)) return false;
             return true;
         }
 
@@ -245,6 +260,58 @@ namespace InventoryOrganizingFeatures
         private static void PatchPostfix(IHealthController healthController, InventoryControllerClass controller, QuestControllerClass questController, LootItemClass[] lootItems, InventoryScreen.EInventoryTab tab, ISession session)
         {
             Session = session;
+        }
+    }
+
+    internal class PostGridSortPanelShow : ModulePatch
+    {
+        protected override MethodBase GetTargetMethod()
+        {
+            return AccessTools.Method(typeof(GridSortPanel), "Show");
+        }
+
+        [PatchPostfix]
+        private static void PatchPostfix(GridSortPanel __instance, InventoryControllerClass controller, LootItemClass item, Button ____button)
+        {
+            //GameObject gspCloneObj = GameObject.Instantiate(__instance.gameObject, __instance.gameObject.transform.parent);
+            //var button = gspCloneObj.GetComponent<Button>();
+            //button.
+            //gspCloneObj.SetActive(true);
+            var callerClassType = new StackTrace().GetFrame(2).GetMethod().ReflectedType;
+            NotificationManagerClass.DisplayMessageNotification($"{callerClassType.Name} - caller Class");
+            if (callerClassType != typeof(SimpleStashPanel)) return;
+            if (OrganizeButton != null) return;
+
+            OrganizeButton = GameObject.Instantiate(____button, ____button.transform.parent);
+            OrganizeButton.onClick.RemoveAllListeners();
+            OrganizeButton.onClick.AddListener(new UnityEngine.Events.UnityAction(() =>
+            {
+                NotificationManagerClass.DisplayMessageNotification("HUESOS HAAHAHAHAHAH");
+            }));
+            //clone.image.sprite = Resources.Load<Sprite>("icon_itemtype_cont");
+            OrganizeButton.gameObject.SetActive(true);
+
+            NotificationManagerClass.DisplayMessageNotification("Cloned GridSortPanel");
+            //go.transform.parent =
+        }
+    }
+
+    internal class PostSimpleStashPanelClose : ModulePatch
+    {
+        protected override MethodBase GetTargetMethod()
+        {
+            return AccessTools.Method(typeof(SimpleStashPanel), "Close");
+        }
+
+        [PatchPostfix]
+        private static void PatchPostfix()
+        {
+            if (OrganizeButton == null) return;
+            OrganizeButton.gameObject.SetActive(false);
+            GameObject.Destroy(OrganizeButton);
+            // Might need it.
+            //GameObject.DestroyImmediate(OrganizeButton);
+            //OrganizeButton = null;
         }
     }
 

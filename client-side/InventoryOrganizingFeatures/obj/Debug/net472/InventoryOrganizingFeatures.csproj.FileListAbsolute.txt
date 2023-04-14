@@ -18,3 +18,4 @@ D:\SPT-AKI\Dev\My Mods\spt-aki-inventory-organizing-features\client-side\Invento
 D:\SPT-AKI\Dev\My Mods\spt-aki-inventory-organizing-features\client-side\InventoryOrganizingFeatures\obj\Debug\net472\InventoryOrganizingFeatures.csproj.CopyComplete
 D:\SPT-AKI\Dev\My Mods\spt-aki-inventory-organizing-features\client-side\InventoryOrganizingFeatures\obj\Debug\net472\InventoryOrganizingFeatures.dll
 D:\SPT-AKI\Dev\My Mods\spt-aki-inventory-organizing-features\client-side\InventoryOrganizingFeatures\obj\Debug\net472\InventoryOrganizingFeatures.pdb
+D:\SPT-AKI\Dev\My Mods\spt-aki-inventory-organizing-features\client-side\InventoryOrganizingFeatures\bin\Debug\net472\UnityEngine.UI.dll
