@@ -9,6 +9,10 @@ namespace InventoryOrganizingFeatures
         {
             // Plugin startup logic
             Logger.LogInfo($"Plugin {PluginInfo.PLUGIN_GUID} is loaded!");
+            new PostEditTagWindowShow().Enable();
+            new PostEditTagWindowClose().Enable();
+            new PreGClass2166RemoveAll().Enable();
+            new PreItemViewOnBeginDrag().Enable();
         }
     }
 }
