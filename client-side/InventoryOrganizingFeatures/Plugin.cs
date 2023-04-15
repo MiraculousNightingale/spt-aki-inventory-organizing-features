@@ -9,14 +9,17 @@ namespace InventoryOrganizingFeatures
         {
             // Plugin startup logic
             Logger.LogInfo($"Plugin {PluginInfo.PLUGIN_GUID} is loaded!");
-            // Assign tag and show active tags
+            // Pre-load image from hideout button for organize button
+            new PostMenuScreenInit().Enable();
+            // Assign tag and show active tags when saving EditTagWindow.
             new PostEditTagWindowShow().Enable();
-            new PostEditTagWindowClose().Enable();
             // Sort lock
-            new PreGClass2166RemoveAll().Enable();
+            new PreGClass2166RemoveAll().Enable(); // Prevent Sorting
             // Move lock
-            new PreItemViewOnPointerDown().Enable();
-            new PreItemViewOnBeginDrag().Enable();
+            new PreItemViewOnPointerDown().Enable(); // Prevent Drag
+            new PreItemViewOnBeginDrag().Enable(); // Prevent Drag
+            new PostGetFailedProperty().Enable(); // Prevent quick move(Ctrl/Shift+Click)
+            new PreQuickFindAppropriatePlace().Enable(); // Don't show warnings when item is Move Locked
 
             new PostGridSortPanelShow().Enable();
         }

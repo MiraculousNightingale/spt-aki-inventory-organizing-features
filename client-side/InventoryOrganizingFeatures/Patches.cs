@@ -14,27 +14,11 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using UnityEngine;
 using UnityEngine.UI;
-using static InventoryOrganizingFeatures.PluginConstants;
+using static InventoryOrganizingFeatures.InventoryOrganizer;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace InventoryOrganizingFeatures
 {
-    internal static class PluginConstants
-    {
-        public const string MoveLockTag = "@ml";
-        public const string SortLockTag = "@sl";
-        public const string OrganizeTag = "@o";
-        public static ISession Session { get; set; }
-        public static Button OrganizeButton { get; set; }
-        public static bool ItemIsMoveLocked(Item item)
-        {
-            return item.TryGetItemComponent(out TagComponent tagComponent) && tagComponent.Name.Contains(MoveLockTag);
-        }
-
-        public static bool ItemIsSortLocked(Item item)
-        {
-            return item.TryGetItemComponent(out TagComponent tagComponent) && tagComponent.Name.Contains(SortLockTag);
-        }
-    }
     internal class PostEditTagWindowShow : ModulePatch
     {
         protected override MethodBase GetTargetMethod()
@@ -43,42 +27,25 @@ namespace InventoryOrganizingFeatures
         }
 
         [PatchPrefix]
-        private static void PatchPrefix(ref EditTagWindow __instance, ref ValidationInputField ____tagInput)
+        private static void PatchPrefix(ref EditTagWindow __instance, ref DefaultUIButton ____saveButtonSpawner, ValidationInputField ____tagInput)
         {
             ____tagInput.characterLimit = 256;
-        }
-    }
-    internal class PostEditTagWindowClose : ModulePatch
-    {
-        protected override MethodBase GetTargetMethod()
-        {
-            // Change to "on_save" or smth
-            return AccessTools.Method(typeof(EditTagWindow), "Close");
-        }
-
-        [PatchPostfix]
-        private static void PatchPostFix(ref EditTagWindow __instance, ref ValidationInputField ____tagInput)
-        {
-            bool isSortLocked = ____tagInput.text.Contains(SortLockTag);
-            bool isDragLocked = ____tagInput.text.Contains(MoveLockTag);
-            bool isOrganized = ____tagInput.text.Contains(OrganizeTag);
-            string notifMsg = "";
-            if (isSortLocked) notifMsg += "This container is Sort Locked.";
-            if (notifMsg.Length > 0) notifMsg += "\n";
-            if (isDragLocked) notifMsg += "This container is Drag Locked.";
-            if (notifMsg.Length > 0) notifMsg += "\n";
-            if (isOrganized)
+            ____saveButtonSpawner.OnClick.AddListener(new UnityEngine.Events.UnityAction(() =>
             {
-                Regex regex = new(OrganizeTag + " \\b[a-zA-Z]{2,}\\b");
-                string organizeStr = regex.Match(____tagInput.text).Value;
-                if (organizeStr != string.Empty)
+                string notifMsg = "";
+                if (IsSortLocked(____tagInput.text)) notifMsg += "This container is Sort Locked.";
+                if (IsMoveLocked(____tagInput.text))
                 {
-                    Logger.LogError("Is not empty");
                     if (notifMsg.Length > 0) notifMsg += "\n";
-                    notifMsg += $"This container will siphon {organizeStr.Substring(OrganizeTag.Length + 1)}";
+                    notifMsg += "This container is Move Locked.";
                 }
-            }
-            NotificationManagerClass.DisplayMessageNotification(notifMsg);
+                if (IsOrganized(____tagInput.text))
+                {
+                    if (notifMsg.Length > 0) notifMsg += "\n";
+                    notifMsg += $"This container is organized with following params: {string.Join(", ", ParseOrganizeParams(____tagInput.text))}";
+                }
+                if (notifMsg.Length > 0) NotificationManagerClass.DisplayMessageNotification(notifMsg);
+            }));
         }
     }
 
@@ -206,13 +173,13 @@ namespace InventoryOrganizingFeatures
             {
                 return false;
             }
-            foreach (var kvp in __instance.ItemCollection.Where(pair => !ItemIsSortLocked(pair.Key)).ToList())
+            foreach (var kvp in __instance.ItemCollection.Where(pair => !IsSortLocked(pair.Key)).ToList())
             {
                 kvp.Deconstruct(out Item item, out LocationInGrid locationInGrid);
                 __instance.ItemCollection.Remove(item, __instance);
                 __instance.SetLayout(item, locationInGrid, false);
             }
-            AccessTools.Method(__instance.GetType(), "method_13").Invoke(__instance, null);
+            AccessTools.Method(__instance.GetType(), "method_13").Invoke(__instance, null); // dynamically reflect this method
             NotificationManagerClass.DisplayMessageNotification("Ran the RemoveAll patch");
             return false;
         }
@@ -228,7 +195,7 @@ namespace InventoryOrganizingFeatures
         [PatchPrefix]
         private static bool PatchPrefix(ref ItemView __instance)
         {
-            if (ItemIsMoveLocked(__instance.Item)) return false;
+            if (IsMoveLocked(__instance.Item)) return false;
             return true;
         }
     }
@@ -243,10 +210,49 @@ namespace InventoryOrganizingFeatures
         [PatchPrefix]
         private static bool PatchPrefix(ref ItemView __instance)
         {
-            if (ItemIsMoveLocked(__instance.Item)) return false;
+            if (IsMoveLocked(__instance.Item)) return false;
             return true;
         }
+    }
 
+    internal class PostGetFailedProperty : ModulePatch
+    {
+        protected override MethodBase GetTargetMethod()
+        {
+            return AccessTools.PropertyGetter(AccessTools.Method(typeof(ItemUiContext), "QuickFindAppropriatePlace").ReturnType, "Failed");
+        }
+
+        [PatchPostfix]
+        private static void PatchPostfix(ref object __instance, ref bool __result)
+        {
+            if (__instance == null) return;
+
+            //// Make sure to only execute if called for ItemView, OnClick method.
+            var callerMethod = new StackTrace().GetFrame(2).GetMethod();
+            if (callerMethod.Name.Equals("OnClick") && callerMethod.ReflectedType == typeof(ItemView))
+            {
+                // instance is actually of type GClass2441 - that's pretty useful. It has lots of info.
+                Item item = AccessTools.Property(__instance.GetType(), "Item").GetValue(__instance) as Item;
+                if (item.TryGetItemComponent(out TagComponent tagComp))
+                {
+                    if (IsMoveLocked(tagComp.Name)) __result = true;
+                }
+            }
+        }
+    }
+
+    internal class PreQuickFindAppropriatePlace : ModulePatch
+    {
+        protected override MethodBase GetTargetMethod()
+        {
+            return AccessTools.Method(typeof(ItemUiContext), "QuickFindAppropriatePlace");
+        }
+
+        [PatchPrefix]
+        private static void PatchPrefix(Item item, ref bool displayWarnings)
+        {
+            if (IsMoveLocked(item)) displayWarnings = false;
+        }
     }
 
     internal class PostInventoryScreenShow : ModulePatch
@@ -278,21 +284,65 @@ namespace InventoryOrganizingFeatures
             //button.
             //gspCloneObj.SetActive(true);
             var callerClassType = new StackTrace().GetFrame(2).GetMethod().ReflectedType;
-            NotificationManagerClass.DisplayMessageNotification($"{callerClassType.Name} - caller Class");
+            //NotificationManagerClass.DisplayMessageNotification($"{callerClassType.Name} - caller Class");
+            // Make sure to only copy the button when loading the sort button in the simplePanel of inventory screen.
+            // Otherwise sort buttons for separate container views will dupe too. Although it's not a bad idea anyway.
             if (callerClassType != typeof(SimpleStashPanel)) return;
-            if (OrganizeButton != null) return;
+            if (OrganizeButton != null)
+                if (!OrganizeButton.IsDestroyed()) return;
 
             OrganizeButton = GameObject.Instantiate(____button, ____button.transform.parent);
             OrganizeButton.onClick.RemoveAllListeners();
             OrganizeButton.onClick.AddListener(new UnityEngine.Events.UnityAction(() =>
             {
-                NotificationManagerClass.DisplayMessageNotification("HUESOS HAAHAHAHAHAH");
+                ItemUiContext.Instance.ShowMessageWindow("Do you want to organize all items by tagged containers?", new Action(() =>
+                {
+                    foreach (var grid in item.Grids)
+                    {
+                        var organizedItems = grid.Items.Where(IsOrganized);
+                        foreach (var orgItem in organizedItems)
+                        {
+                            var orgParams = ParseOrganizeParams(orgItem);
+                            var validItems = grid.Items.Where(item => orgParams.Any(param => IsChildOfLocalized(item, param)));
+                            Logger.LogMessage($"Valid Items: {validItems.Count()}");
+                        }
+                        //Logger.LogMessage($"Counts: Items - {grid.Items.Count()} ContainedItems - {grid.ContainedItems.Count}");
+                    }
+                }), new Action(MessageNotifCancel));
             }));
-            //clone.image.sprite = Resources.Load<Sprite>("icon_itemtype_cont");
-            OrganizeButton.gameObject.SetActive(true);
+            OrganizeButton.image.sprite = OrganizeSprite;
+            OrganizeButton.gameObject.DestroyAllChildren();
 
-            NotificationManagerClass.DisplayMessageNotification("Cloned GridSortPanel");
-            //go.transform.parent =
+            OrganizeButton.gameObject.SetActive(true);
+        }
+
+        private static bool IsChildOfLocalized(Item item, string searchedLocalizedName, bool caseSensitive = false)
+        {
+            for (ItemTemplate parent = item.Template.Parent; parent != null; parent = parent.Parent)
+            {
+                if (caseSensitive)
+                {
+                    if (parent.NameLocalizationKey.Localized().Contains(searchedLocalizedName)) return true;
+                }
+                else
+                {
+                    if (parent.NameLocalizationKey.Localized().ToLower().Contains(searchedLocalizedName.ToLower())) return true;
+                }
+                //Logger.LogMessage($"Parent Name {parent.NameLocalizationKey.Localized()}");
+            }
+            return false;
+        }
+
+        private static void OrganizeButtonOnClick()
+        {
+        }
+
+        private static void MessageNotifAccept()
+        {
+            NotificationManagerClass.DisplayMessageNotification("Cock suckah");
+        }
+        private static void MessageNotifCancel()
+        {
         }
     }
 
@@ -307,11 +357,29 @@ namespace InventoryOrganizingFeatures
         private static void PatchPostfix()
         {
             if (OrganizeButton == null) return;
+            if (OrganizeButton.IsDestroyed()) return;
+
             OrganizeButton.gameObject.SetActive(false);
             GameObject.Destroy(OrganizeButton);
+
             // Might need it.
             //GameObject.DestroyImmediate(OrganizeButton);
             //OrganizeButton = null;
+        }
+    }
+
+    internal class PostMenuScreenInit : ModulePatch
+    {
+        protected override MethodBase GetTargetMethod()
+        {
+            return AccessTools.Method(typeof(MenuScreen), "Init");
+        }
+
+        [PatchPostfix]
+        private static void PatchPostfix(ref DefaultUIButton ____hideoutButton)
+        {
+            if (OrganizeSprite != null) return;
+            OrganizeSprite = AccessTools.Field(____hideoutButton.GetType(), "_iconSprite").GetValue(____hideoutButton) as Sprite;
         }
     }
 
