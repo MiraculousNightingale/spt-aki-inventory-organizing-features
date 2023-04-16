@@ -1,4 +1,6 @@
 ﻿using EFT.InventoryLogic;
+using HarmonyLib;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -42,7 +44,7 @@ namespace InventoryOrganizingFeatures
 
         private void LogNotif(string message)
         {
-            NotificationManagerClass.DisplayMessageNotification(message, duration: EFT.Communications.ENotificationDurationType.Infinite);
+            if (Plugin.EnableLogs) NotificationManagerClass.DisplayMessageNotification(message, duration: EFT.Communications.ENotificationDurationType.Infinite);
         }
 
         public void Organize()
@@ -56,8 +58,13 @@ namespace InventoryOrganizingFeatures
                     var location = grid.FindLocationForItem(item);
                     if (location == null) continue;
                     // In reference (OnClick from ItemView) simulate = true was used.
-                    var moveResult = GClass2429.Move(item, location, Controller, true);
-                    Controller.RunNetworkTransaction(moveResult.Value);
+                    var sortClassMethods = new string[] { "Sort", "ApplyItemToRevolverDrum", "ApplySingleItemToAddress", "Fold", "CanRecode", "CanFold" };
+                    var sortClassType = ReflectionHelper.FindClassTypeByMethodNames(sortClassMethods);
+                    var moveResult = AccessTools.Method(sortClassType, "Move").Invoke(null, new object[] { item, location, Controller, true });
+                    //var moveResult = GClass2429.Move(item, location, Controller, true);
+                    var moveResultValue = AccessTools.Field(moveResult.GetType(), "Value").GetValue(moveResult);
+                    AccessTools.Method(Controller.GetType(), "RunNetworkTransaction").Invoke(Controller, new object[] { moveResultValue, Type.Missing });
+                    //Controller.RunNetworkTransaction(moveResult.Value);
                     LogNotif("Executed move.");
                 }
             }

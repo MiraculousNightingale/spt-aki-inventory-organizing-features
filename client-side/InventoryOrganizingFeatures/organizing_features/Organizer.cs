@@ -32,7 +32,7 @@ namespace InventoryOrganizingFeatures
 
         private static void LogNotif(string message)
         {
-            NotificationManagerClass.DisplayMessageNotification(message, duration: EFT.Communications.ENotificationDurationType.Infinite);
+            if(Plugin.EnableLogs) NotificationManagerClass.DisplayMessageNotification(message, duration: EFT.Communications.ENotificationDurationType.Infinite);
         }
 
         public static bool IsOrganized(Item item)

@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -19,12 +20,23 @@ namespace InventoryOrganizingFeatures
                     return methodNames.All(searchedMethodName => methods.Contains(searchedMethodName));
                 }
                 return false;
-            }).First();
+            }).FirstOrDefault();
         }
 
-        public static T InvokeMethod<T>(object targetObj, string methodName, object[] args)
+        public static MethodInfo FindMethodByArgTypes(object instance, Type[] methodArgTypes)
         {
-            return (T)AccessTools.Method(targetObj.GetType(), methodName).Invoke(targetObj, args);
+            return FindMethodByArgTypes(instance.GetType(), methodArgTypes);
+        }
+
+        public static MethodInfo FindMethodByArgTypes(Type type, Type[] methodArgTypes)
+        {
+            //type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).Where(method => method.)
+            return null;
+        }
+
+        public static T InvokeMethod<T>(object targetObj, string methodName, object[] args, Type[] methodArgTypes = null)
+        {
+            return (T)AccessTools.Method(targetObj.GetType(), methodName, methodArgTypes).Invoke(targetObj, args);
         }
     }
 }

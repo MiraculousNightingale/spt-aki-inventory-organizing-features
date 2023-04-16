@@ -62,7 +62,7 @@ namespace InventoryOrganizingFeatures
                         notifMsg += $"\n  -  Category: {string.Join(", ", categoryParams)}";
                     }
 
-                    if(nameParams.Length > 0)
+                    if (nameParams.Length > 0)
                     {
                         notifMsg += $"\n  -  Name: {string.Join(", ", nameParams)}";
                     }
@@ -87,8 +87,7 @@ namespace InventoryOrganizingFeatures
         protected override MethodBase GetTargetMethod()
         {
             var sortClassMethods = new string[] { "Sort", "ApplyItemToRevolverDrum", "ApplySingleItemToAddress", "Fold", "CanRecode", "CanFold" };
-            var targetClassType = ReflectionHelper.FindClassTypeByMethodNames(sortClassMethods);
-            return AccessTools.Method(targetClassType, "Sort");
+            return AccessTools.Method(ReflectionHelper.FindClassTypeByMethodNames(sortClassMethods), "Sort");
         }
 
         [PatchPrefix]
@@ -186,32 +185,48 @@ namespace InventoryOrganizingFeatures
     {
         protected override MethodBase GetTargetMethod()
         {
-            var sortClassMethods = new string[] { "Sort", "ApplyItemToRevolverDrum", "ApplySingleItemToAddress", "Fold", "CanRecode", "CanFold" };
-            var targetClassType = ReflectionHelper.FindClassTypeByMethodNames(sortClassMethods);
-            return AccessTools.Method(typeof(GClass2166), "RemoveAll");
+            // Find the Grid class (Per STP-AKI 3.5.5 it's a GClass2166)
+            var gridClassMethods = new string[] { "FindItem", "GetItemsInRect", "FindLocationForItem", "Add", "AddItemWithoutRestrictions", "Remove", "RemoveAll", "CanReplace" };
+            return AccessTools.Method(ReflectionHelper.FindClassTypeByMethodNames(gridClassMethods), "RemoveAll");
         }
 
         [PatchPrefix]
-        private static bool PatchPrefix(ref GClass2166 __instance)
+        private static bool PatchPrefix(ref object __instance)
         {
             var sortClassMethods = new string[] { "Sort", "ApplyItemToRevolverDrum", "ApplySingleItemToAddress", "Fold", "CanRecode", "CanFold" };
             var sortClassType = ReflectionHelper.FindClassTypeByMethodNames(sortClassMethods);
             var callerClassType = new StackTrace().GetFrame(2).GetMethod().ReflectedType;
-            NotificationManagerClass.DisplayMessageNotification($"{sortClassType.Name}\n{callerClassType.Name} - caller Class");
+            //NotificationManagerClass.DisplayMessageNotification($"{sortClassType.Name}\n{callerClassType.Name} - caller Class");
+            // If method is being called from the static SortClass - run patched code, if not - run default code.
             if (callerClassType != sortClassType) return true;
 
-            // If method is being called from the static SortClass - run patched code instead.
-            if (!__instance.ItemCollection.Any())
+            var itemCollection = (IEnumerable<KeyValuePair<Item, LocationInGrid>>)AccessTools.Property(__instance.GetType(), "ItemCollection").GetValue(__instance);
+            //if (!__instance.ItemCollection.Any())
+            if (!itemCollection.Any())
             {
                 return false;
             }
-            foreach (var kvp in __instance.ItemCollection.Where(pair => !IsSortLocked(pair.Key)).ToList())
-            {
+            //foreach (var kvp in __instance.ItemCollection.Where(pair => !IsSortLocked(pair.Key)).ToList())
+            foreach (var kvp in itemCollection.Where(pair => !IsSortLocked(pair.Key)).ToList())
+                {
                 kvp.Deconstruct(out Item item, out LocationInGrid locationInGrid);
-                __instance.ItemCollection.Remove(item, __instance);
-                __instance.SetLayout(item, locationInGrid, false);
+                //__instance.ItemCollection.Remove(item, __instance);
+                AccessTools.Method(itemCollection.GetType(), "Remove").Invoke(itemCollection, new object[] { item, __instance });
+                //__instance.SetLayout(item, locationInGrid, false);
+                AccessTools.Method(__instance.GetType(), "SetLayout").Invoke(__instance, new object[] { item, locationInGrid, false });
             }
-            AccessTools.Method(__instance.GetType(), "method_13").Invoke(__instance, null); // dynamically reflect this method
+
+            var lastLineMethod = __instance // look for method with generic name, called on the last line of RemoveAll()
+                .GetType()
+                .GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
+                .Where(method =>
+                {
+                    return method.ReturnType == typeof(void)
+                    && method.GetMethodBody().LocalVariables.Count == 6
+                    && method.GetMethodBody().LocalVariables.All(variable => variable.LocalType == typeof(int));
+                })
+                .First(); // let it throw exception if somehow the method wasn't found.
+            lastLineMethod.Invoke(__instance, null);
             NotificationManagerClass.DisplayMessageNotification("Ran the RemoveAll patch");
             return false;
         }
