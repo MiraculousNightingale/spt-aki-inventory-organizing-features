@@ -1,9 +1,12 @@
 ﻿using Aki.Reflection.Patching;
+using EFT.HandBook;
 using EFT.InventoryLogic;
 using EFT.UI;
 using EFT.UI.DragAndDrop;
 using HarmonyLib;
+using InventoryOrganizingFeatures.Reflections;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -14,7 +17,8 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using UnityEngine;
 using UnityEngine.UI;
-using static InventoryOrganizingFeatures.InventoryOrganizer;
+using static InventoryOrganizingFeatures.Locker;
+using static InventoryOrganizingFeatures.Organizer;
 using static System.Net.Mime.MediaTypeNames;
 
 namespace InventoryOrganizingFeatures
@@ -42,6 +46,7 @@ namespace InventoryOrganizingFeatures
                 if (IsOrganized(____tagInput.text))
                 {
                     if (notifMsg.Length > 0) notifMsg += "\n";
+                    // Add pretty notification output
                     notifMsg += $"This container is organized with following params: {string.Join(", ", ParseOrganizeParams(____tagInput.text))}";
                 }
                 if (notifMsg.Length > 0) NotificationManagerClass.DisplayMessageNotification(notifMsg);
@@ -279,10 +284,6 @@ namespace InventoryOrganizingFeatures
         [PatchPostfix]
         private static void PatchPostfix(GridSortPanel __instance, InventoryControllerClass controller, LootItemClass item, Button ____button)
         {
-            //GameObject gspCloneObj = GameObject.Instantiate(__instance.gameObject, __instance.gameObject.transform.parent);
-            //var button = gspCloneObj.GetComponent<Button>();
-            //button.
-            //gspCloneObj.SetActive(true);
             var callerClassType = new StackTrace().GetFrame(2).GetMethod().ReflectedType;
             //NotificationManagerClass.DisplayMessageNotification($"{callerClassType.Name} - caller Class");
             // Make sure to only copy the button when loading the sort button in the simplePanel of inventory screen.
@@ -297,44 +298,13 @@ namespace InventoryOrganizingFeatures
             {
                 ItemUiContext.Instance.ShowMessageWindow("Do you want to organize all items by tagged containers?", new Action(() =>
                 {
-                    foreach (var grid in item.Grids)
-                    {
-                        var organizedItems = grid.Items.Where(IsOrganized);
-                        foreach (var orgItem in organizedItems)
-                        {
-                            var orgParams = ParseOrganizeParams(orgItem);
-                            var validItems = grid.Items.Where(item => orgParams.Any(param => IsChildOfLocalized(item, param)));
-                            Logger.LogMessage($"Valid Items: {validItems.Count()}");
-                        }
-                        //Logger.LogMessage($"Counts: Items - {grid.Items.Count()} ContainedItems - {grid.ContainedItems.Count}");
-                    }
+                    Organize(item, controller);
                 }), new Action(MessageNotifCancel));
             }));
             OrganizeButton.image.sprite = OrganizeSprite;
             OrganizeButton.gameObject.DestroyAllChildren();
 
             OrganizeButton.gameObject.SetActive(true);
-        }
-
-        private static bool IsChildOfLocalized(Item item, string searchedLocalizedName, bool caseSensitive = false)
-        {
-            for (ItemTemplate parent = item.Template.Parent; parent != null; parent = parent.Parent)
-            {
-                if (caseSensitive)
-                {
-                    if (parent.NameLocalizationKey.Localized().Contains(searchedLocalizedName)) return true;
-                }
-                else
-                {
-                    if (parent.NameLocalizationKey.Localized().ToLower().Contains(searchedLocalizedName.ToLower())) return true;
-                }
-                //Logger.LogMessage($"Parent Name {parent.NameLocalizationKey.Localized()}");
-            }
-            return false;
-        }
-
-        private static void OrganizeButtonOnClick()
-        {
         }
 
         private static void MessageNotifAccept()
@@ -380,6 +350,27 @@ namespace InventoryOrganizingFeatures
         {
             if (OrganizeSprite != null) return;
             OrganizeSprite = AccessTools.Field(____hideoutButton.GetType(), "_iconSprite").GetValue(____hideoutButton) as Sprite;
+        }
+    }
+
+    internal class PostInitHanbook : ModulePatch
+    {
+        protected override MethodBase GetTargetMethod()
+        {
+            return AccessTools.Method(typeof(MenuTaskBar), "InitHandbook");
+        }
+
+        [PatchPostfix]
+        private static void PatchPostfix(ref object handbook)
+        {
+            if (Organizer.Handbook == null) Organizer.Handbook = new Handbook(handbook);
+            Logger.LogMessage($"Elements: {Organizer.Handbook.NodesTree.Count}");
+            var search = Organizer.Handbook.FindNode("5751496424597720a27126da");
+            if(search!= null)
+            {
+                Logger.LogMessage($"Found: {search.Data.Name.Localized()}");
+                Logger.LogMessage($"Categories: {string.Join(" > ", search.Category.Select(cat => cat.Localized()))}");
+            }
         }
     }
 

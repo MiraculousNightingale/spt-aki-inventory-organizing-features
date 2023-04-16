@@ -9,6 +9,8 @@ namespace InventoryOrganizingFeatures
         {
             // Plugin startup logic
             Logger.LogInfo($"Plugin {PluginInfo.PLUGIN_GUID} is loaded!");
+            // Pull handbook from the init method.
+            new PostInitHanbook().Enable(); 
             // Pre-load image from hideout button for organize button
             new PostMenuScreenInit().Enable();
             // Assign tag and show active tags when saving EditTagWindow.

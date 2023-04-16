@@ -1,0 +1,79 @@
+﻿using EFT.InventoryLogic;
+using InventoryOrganizingFeatures.Reflections;
+using System.Linq;
+using System.Text.RegularExpressions;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace InventoryOrganizingFeatures
+{
+    internal class Organizer
+    {
+        public const string OrganizeTag = "@o";
+        public const char OrganizeTagSeparator = '|';
+        public const char OrganizeTagEnd = ';';
+        public static Regex OrganizeRegex = new(OrganizeTag + " (.*?)" + OrganizeTagEnd);
+
+        public static Handbook Handbook { get; set; } = null;
+        public static Button OrganizeButton { get; set; } = null;
+        public static Sprite OrganizeSprite { get; set; } = null;
+        public static void Organize(LootItemClass topLevelItem, InventoryControllerClass controller)
+        {
+            foreach (var grid in topLevelItem.Grids)
+            {
+                var organizedContainers = grid.Items.Where(IsOrganized).Select(item => new OrganizedContainer((LootItemClass)item, topLevelItem, controller)).ToList();
+                foreach (var container in organizedContainers)
+                {
+                    LogNotif($"Organized Container: {container.TargetItem.LocalizedName()}");
+                    container.Organize();
+                }
+            }
+        }
+
+        private static void LogNotif(string message)
+        {
+            NotificationManagerClass.DisplayMessageNotification(message, duration: EFT.Communications.ENotificationDurationType.Infinite);
+        }
+
+        public static bool IsOrganized(Item item)
+        {
+            if (!item.TryGetItemComponent(out TagComponent tagComponent)) return false;
+            if (!item.IsContainer) return false;
+            return IsOrganized(tagComponent.Name);
+        }
+        public static bool IsOrganized(string tagName)
+        {
+            string organizeStr = OrganizeRegex.Match(tagName).Value;
+            if (organizeStr == string.Empty) return false;
+            return ParseOrganizeParams(tagName).Length > 0;
+        }
+
+        public static string[] ParseOrganizeParams(Item item)
+        {
+            if (!IsOrganized(item)) return new string[0];
+            if (!item.TryGetItemComponent(out TagComponent tagComponent)) return new string[0];
+            return ParseOrganizeParams(tagComponent.Name);
+        }
+
+        public static string[] ParseOrganizeParams(string tagName)
+        {
+            string organizeStr = OrganizeRegex.Match(tagName).Value;
+            if (organizeStr == string.Empty)
+            {
+                // If full organize tag not found - check shortcut is used
+                if (!tagName.Contains(OrganizeTag)) return new string[0];
+
+                return new string[] { OrganizedContainer.ParamDefault };
+            }
+
+            var result = organizeStr.Substring(OrganizeTag.Length + 1).TrimEnd(OrganizeTagEnd).Split(OrganizeTagSeparator).DoMap(param => param.Trim()).ToArray();
+            // If params contain only FoundInRaid or NotFoundInRaid param then add Default param to the beginning.
+            if (result.Length == 1 && (result.Contains(OrganizedContainer.ParamFoundInRaid) || result.Contains(OrganizedContainer.ParamNotFoundInRaid)))
+            {
+                result.Prepend(OrganizedContainer.ParamDefault);
+            }
+            return result;
+        }
+    }
+
+}
