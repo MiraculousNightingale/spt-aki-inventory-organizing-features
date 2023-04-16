@@ -69,18 +69,7 @@ namespace InventoryOrganizingFeatures
             if (ParamsContainFoundInRaid && !item.SpawnedInSession) return false;
             if (ParamsContainNotFoundInRaid && item.SpawnedInSession) return false;
 
-            if (ParamsContainDefault)
-            {
-                // Only check for names if --default category is present in parameters
-                // since --default means - any fitting category
-                if (NameParams.Length > 0) return CanAccept(item) && ItemFitsNameParams(item);
-                // If no names params present, get any item that fits by defined container filters
-                return CanAccept(item);
-            }
-            else
-            {
-                return CanAccept(item) && (ItemFitsCategoryParams(item) || ItemFitsNameParams(item));
-            }
+            return CanAccept(item) && ItemFitsCategoryParams(item) && ItemFitsNameParams(item);
         }
 
         // Reference GClass2174.CanAccept or just IContainer.CheckItemFilter
@@ -91,6 +80,8 @@ namespace InventoryOrganizingFeatures
 
         private bool ItemFitsCategoryParams(Item item)
         {
+            if (CategoryParams.Length < 1) return true;
+            if (ParamsContainDefault) return true;
             var node = Organizer.Handbook.FindNode(item.TemplateId);
             if (node == null)
             {
@@ -101,6 +92,7 @@ namespace InventoryOrganizingFeatures
 
         private bool ItemFitsNameParams(Item item)
         {
+            if (NameParams.Length < 1) return true;
             return NameParams.Any(param => item.LocalizedName().ToLower().Contains(param.ToLower()));
         }
 

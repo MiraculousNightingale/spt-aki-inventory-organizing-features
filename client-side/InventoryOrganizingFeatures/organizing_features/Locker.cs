@@ -18,22 +18,43 @@ namespace InventoryOrganizingFeatures
 
         public static bool IsMoveLocked(Item item)
         {
-            return item.TryGetItemComponent(out TagComponent tagComponent) && tagComponent.Name.Contains(MoveLockTag);
+            return item.TryGetItemComponent(out TagComponent tagComponent) && IsMoveLocked(tagComponent.Name);
         }
 
         public static bool IsMoveLocked(string tagName)
         {
-            return tagName.Contains(MoveLockTag);
+            return ContainsSeparate(tagName, MoveLockTag);
         }
 
         public static bool IsSortLocked(Item item)
         {
-            return item.TryGetItemComponent(out TagComponent tagComponent) && tagComponent.Name.Contains(SortLockTag);
+            return item.TryGetItemComponent(out TagComponent tagComponent) && IsSortLocked(tagComponent.Name);
         }
 
         public static bool IsSortLocked(string tagName)
         {
-            return tagName.Contains(SortLockTag);
+            return ContainsSeparate(tagName, SortLockTag);
+        }
+
+        private static bool ContainsSeparate(string tagName, string findTag)
+        {
+            if(tagName.Contains(findTag))
+            {
+                // check char before tag
+                int beforeTagIdx = tagName.IndexOf(findTag) - 1;
+                if(beforeTagIdx >= 0)
+                {
+                    if (tagName[beforeTagIdx] != ' ') return false;
+                }
+                // check char after tag
+                int afterTagIdx = tagName.IndexOf(findTag) + findTag.Length;
+                if(afterTagIdx <= tagName.Length - 1)
+                {
+                    if (tagName[afterTagIdx] != ' ') return false;
+                }
+                return true;
+            }
+            return false;
         }
     }
 

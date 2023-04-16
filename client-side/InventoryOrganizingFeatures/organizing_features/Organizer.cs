@@ -43,9 +43,28 @@ namespace InventoryOrganizingFeatures
         }
         public static bool IsOrganized(string tagName)
         {
-            string organizeStr = OrganizeRegex.Match(tagName).Value;
-            if (organizeStr == string.Empty) return false;
             return ParseOrganizeParams(tagName).Length > 0;
+        }
+
+        private static bool ContainsSeparate(string tagName, string findTag)
+        {
+            if (tagName.Contains(findTag))
+            {
+                // check char before tag
+                int beforeTagIdx = tagName.IndexOf(findTag) - 1;
+                if (beforeTagIdx >= 0)
+                {
+                    if (tagName[beforeTagIdx] != ' ') return false;
+                }
+                // check char after tag
+                int afterTagIdx = tagName.IndexOf(findTag) + findTag.Length;
+                if (afterTagIdx <= tagName.Length - 1)
+                {
+                    if (tagName[afterTagIdx] != ' ') return false;
+                }
+                return true;
+            }
+            return false;
         }
 
         public static string[] ParseOrganizeParams(Item item)
@@ -58,20 +77,31 @@ namespace InventoryOrganizingFeatures
         public static string[] ParseOrganizeParams(string tagName)
         {
             string organizeStr = OrganizeRegex.Match(tagName).Value;
-            if (organizeStr == string.Empty)
+            if (organizeStr.IsNullOrEmpty())
             {
-                // If full organize tag not found - check shortcut is used
-                if (!tagName.Contains(OrganizeTag)) return new string[0];
-
-                return new string[] { OrganizedContainer.ParamDefault };
+                // If full organize regex match not found - check shortcut is used
+                if (ContainsSeparate(tagName, OrganizeTag))
+                {
+                    return new string[] { OrganizedContainer.ParamDefault };
+                }
+                return new string[0];
             }
 
-            var result = organizeStr.Substring(OrganizeTag.Length + 1).TrimEnd(OrganizeTagEnd).Split(OrganizeTagSeparator).DoMap(param => param.Trim()).ToArray();
+            var result = organizeStr
+                .Substring(OrganizeTag.Length + 1) // remove the tag
+                .TrimEnd(OrganizeTagEnd) // remove the closing semicolon
+                .Trim() // trim spaces
+                .Split(OrganizeTagSeparator) // split by defined separator
+                .DoMap(param => param.Trim()) // trim every param
+                .Where(param => !param.IsNullOrEmpty()) // filter out empty left-over params
+                .ToArray();
+
             // If params contain only FoundInRaid or NotFoundInRaid param then add Default param to the beginning.
             if (result.Length == 1 && (result.Contains(OrganizedContainer.ParamFoundInRaid) || result.Contains(OrganizedContainer.ParamNotFoundInRaid)))
             {
                 result.Prepend(OrganizedContainer.ParamDefault);
             }
+            if (result.Length < 1) result.Prepend(OrganizedContainer.ParamDefault);
             return result;
         }
     }

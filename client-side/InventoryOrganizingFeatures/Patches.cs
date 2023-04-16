@@ -19,6 +19,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using static InventoryOrganizingFeatures.Locker;
 using static InventoryOrganizingFeatures.Organizer;
+using static InventoryOrganizingFeatures.OrganizedContainer;
 using static System.Net.Mime.MediaTypeNames;
 
 namespace InventoryOrganizingFeatures
@@ -37,17 +38,43 @@ namespace InventoryOrganizingFeatures
             ____saveButtonSpawner.OnClick.AddListener(new UnityEngine.Events.UnityAction(() =>
             {
                 string notifMsg = "";
-                if (IsSortLocked(____tagInput.text)) notifMsg += "This container is Sort Locked.";
+                if (IsSortLocked(____tagInput.text)) notifMsg += "This item is Sort Locked.";
                 if (IsMoveLocked(____tagInput.text))
                 {
                     if (notifMsg.Length > 0) notifMsg += "\n";
-                    notifMsg += "This container is Move Locked.";
+                    notifMsg += "This item is Move Locked.";
                 }
                 if (IsOrganized(____tagInput.text))
                 {
                     if (notifMsg.Length > 0) notifMsg += "\n";
                     // Add pretty notification output
-                    notifMsg += $"This container is organized with following params: {string.Join(", ", ParseOrganizeParams(____tagInput.text))}";
+                    var orgParams = ParseOrganizeParams(____tagInput.text);
+                    var categoryParams = GetCategoryParams(orgParams);
+                    var nameParams = GetNameParams(orgParams);
+
+                    notifMsg += "This item has following organize params:";
+                    if (HasParamDefault(orgParams))
+                    {
+                        notifMsg += $"\n  -  Category: default container categories";
+                    }
+                    else if (categoryParams.Length > 0)
+                    {
+                        notifMsg += $"\n  -  Category: {string.Join(", ", categoryParams)}";
+                    }
+
+                    if(nameParams.Length > 0)
+                    {
+                        notifMsg += $"\n  -  Name: {string.Join(", ", nameParams)}";
+                    }
+
+                    if (HasParamFoundInRaid(orgParams))
+                    {
+                        notifMsg += "\n  -  Only \"Found in raid\".";
+                    }
+                    else if (HasParamNotFoundInRaid(orgParams))
+                    {
+                        notifMsg += "\n  -  Only \"Not found in raid.\"";
+                    }
                 }
                 if (notifMsg.Length > 0) NotificationManagerClass.DisplayMessageNotification(notifMsg);
             }));
@@ -366,7 +393,7 @@ namespace InventoryOrganizingFeatures
             if (Organizer.Handbook == null) Organizer.Handbook = new Handbook(handbook);
             Logger.LogMessage($"Elements: {Organizer.Handbook.NodesTree.Count}");
             var search = Organizer.Handbook.FindNode("5751496424597720a27126da");
-            if(search!= null)
+            if (search != null)
             {
                 Logger.LogMessage($"Found: {search.Data.Name.Localized()}");
                 Logger.LogMessage($"Categories: {string.Join(" > ", search.Category.Select(cat => cat.Localized()))}");
