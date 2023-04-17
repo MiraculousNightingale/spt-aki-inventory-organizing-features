@@ -16,6 +16,7 @@ namespace InventoryOrganizingFeatures
         public static string[] DoubleDashParams = { ParamDefault, ParamFoundInRaid, ParamNotFoundInRaid };
 
         public const string NameParamPrefix = "n:";
+        public const char NotParamPrefix = '!';
 
         public string[] Params { get; }
         public LootItemClass TargetItem { get; }
@@ -68,7 +69,7 @@ namespace InventoryOrganizingFeatures
                 {
                     var location = grid.FindLocationForItem(item);
                     if (location == null) continue;
-                    
+
                     // In reference (OnClick from ItemView) simulate = true was used.
                     var moveResult = sortClassMove.Invoke(null, new object[] { item, location, Controller, true });
                     //var moveResult = GClass2429.Move(item, location, Controller, true);
@@ -87,7 +88,7 @@ namespace InventoryOrganizingFeatures
             if (ParamsContainFoundInRaid && !item.SpawnedInSession) return false;
             if (ParamsContainNotFoundInRaid && item.SpawnedInSession) return false;
 
-            return CanAccept(item) && ItemFitsCategoryParams(item) && ItemFitsNameParams(item);
+            return CanAccept(item) && ItemPassesCategoryConditions(item) && ItemPassesNameConditions(item);
         }
 
         // Reference GClass2174.CanAccept or just IContainer.CheckItemFilter
@@ -96,35 +97,74 @@ namespace InventoryOrganizingFeatures
             return TargetItem.Grids.Any(grid => grid.CanAccept(item));
         }
 
-        private bool ItemFitsCategoryParams(Item item)
+        private bool ItemPassesCategoryConditions(Item item)
         {
-            if (CategoryParams.Length < 1) return true;
+            return ItemFitsPositiveCategoryParams(item) && ItemFitsNegatedCategoryParams(item);
+        }
+
+        private bool ItemPassesNameConditions(Item item)
+        {
+            return ItemFitsPositiveNameParams(item) && ItemFitsNegatedNameParams(item);
+        }
+
+        private bool ItemFitsPositiveCategoryParams(Item item)
+        {
+            if (PositiveCategoryParams.Length < 1) return true;
             if (ParamsContainDefault) return true;
             var node = Organizer.Handbook.FindNode(item.TemplateId);
             if (node == null)
             {
                 NotificationManagerClass.DisplayWarningNotification($"InventoryOrganizingFeatures Warning: Coudln't find {item.LocalizedName()} in handbook. Perhaps it's a modded item?");
+                return false;
             }
-            return CategoryParams.Any(param => node.CategoryContains(param));
+            return PositiveCategoryParams.Any(param => node.CategoryContains(param));
         }
 
-        private bool ItemFitsNameParams(Item item)
+        private bool ItemFitsNegatedCategoryParams(Item item)
         {
-            if (NameParams.Length < 1) return true;
-            return NameParams.Any(param => item.LocalizedName().ToLower().Contains(param.ToLower()));
+            if (NegatedCategoryParams.Length < 1) return true;
+            var node = Organizer.Handbook.FindNode(item.TemplateId);
+            if (node == null)
+            {
+                NotificationManagerClass.DisplayWarningNotification($"InventoryOrganizingFeatures Warning: Coudln't find {item.LocalizedName()} in handbook. Perhaps it's a modded item?");
+                return false;
+            }
+            return NegatedCategoryParams.All(param => !node.CategoryContains(param));
         }
 
-        private static bool IsDoubleDashParam(string param)
+        private bool ItemFitsPositiveNameParams(Item item)
+        {
+            if (PositiveNameParams.Length < 1) return true;
+            return PositiveNameParams.Any(param => item.LocalizedName().ToLower().Contains(param.ToLower()));
+        }
+
+        private bool ItemFitsNegatedNameParams(Item item)
+        {
+            if (NegatedNameParams.Length < 1) return true;
+            return NegatedNameParams.All(param => !item.LocalizedName().ToLower().Contains(param.ToLower()));
+        }
+
+        public static bool IsPositiveParam(string param)
+        {
+            return !param.StartsWith(NotParamPrefix.ToString());
+        }
+
+        public static bool IsNegatedParam(string param)
+        {
+            return param.StartsWith(NotParamPrefix.ToString());
+        }
+
+        public static bool IsDoubleDashParam(string param)
         {
             return DoubleDashParams.Any(ddp => ddp.Equals(param.ToLower()));
         }
 
-        private static bool IsNameParam(string param)
+        public static bool IsNameParam(string param)
         {
             return param.StartsWith(NameParamPrefix);
         }
 
-        private static bool IsCategoryParam(string param)
+        public static bool IsCategoryParam(string param)
         {
             return !IsDoubleDashParam(param) && !IsNameParam(param);
         }
@@ -137,11 +177,43 @@ namespace InventoryOrganizingFeatures
             }
         }
 
+        private string[] PositiveCategoryParams
+        {
+            get
+            {
+                return CategoryParams.Where(IsPositiveParam).ToArray();
+            }
+        }
+
+        private string[] NegatedCategoryParams
+        {
+            get
+            {
+                return CategoryParams.Where(IsNegatedParam).Select(param => param.TrimStart(NotParamPrefix)).ToArray();
+            }
+        }
+
         private string[] NameParams
         {
             get
             {
                 return Params.Where(IsNameParam).Select(param => param.Substring(NameParamPrefix.Length).Trim()).ToArray();
+            }
+        }
+
+        private string[] PositiveNameParams
+        {
+            get
+            {
+                return NameParams.Where(IsPositiveParam).ToArray();
+            }
+        }
+
+        private string[] NegatedNameParams
+        {
+            get
+            {
+                return NameParams.Where(IsNegatedParam).Select(param => param.TrimStart(NotParamPrefix)).ToArray();
             }
         }
 

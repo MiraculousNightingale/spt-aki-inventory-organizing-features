@@ -1,4 +1,5 @@
 ﻿using EFT.InventoryLogic;
+using HarmonyLib;
 using InventoryOrganizingFeatures.Reflections;
 using System;
 using System.Linq;
@@ -6,6 +7,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
+using static InventoryOrganizingFeatures.OrganizedContainer;
 
 namespace InventoryOrganizingFeatures
 {
@@ -19,29 +21,17 @@ namespace InventoryOrganizingFeatures
         public static Handbook Handbook { get; set; } = null;
         public static Button OrganizeButton { get; set; } = null;
         public static Sprite OrganizeSprite { get; set; } = null;
-        public static Task<bool> Organize(LootItemClass topLevelItem, InventoryControllerClass controller)
+        public static void Organize(LootItemClass topLevelItem, InventoryControllerClass controller)
         {
-            return Task.Run(() =>
+            foreach (var grid in topLevelItem.Grids)
             {
-                try
+                var organizedContainers = grid.Items.Where(IsOrganized).Select(item => new OrganizedContainer((LootItemClass)item, topLevelItem, controller)).ToList();
+                foreach (var container in organizedContainers)
                 {
-                    foreach (var grid in topLevelItem.Grids)
-                    {
-                        var organizedContainers = grid.Items.Where(IsOrganized).Select(item => new OrganizedContainer((LootItemClass)item, topLevelItem, controller)).ToList();
-                        foreach (var container in organizedContainers)
-                        {
-                            LogNotif($"Organized Container: {container.TargetItem.LocalizedName()}");
-                            container.Organize();
-                        }
-                    }
-                    return true;
+                    LogNotif($"Organized Container: {container.TargetItem.LocalizedName()}");
+                    container.Organize();
                 }
-                catch(Exception ex) 
-                {
-                    NotificationManagerClass.DisplayWarningNotification(ex.Message);
-                    return false;
-                }
-            });
+            }
         }
 
         private static void LogNotif(string message)
@@ -96,7 +86,7 @@ namespace InventoryOrganizingFeatures
                 // If full organize regex match not found - check shortcut is used
                 if (ContainsSeparate(tagName, OrganizeTag))
                 {
-                    return new string[] { OrganizedContainer.ParamDefault };
+                    return new string[] { ParamDefault };
                 }
                 return new string[0];
             }
@@ -110,12 +100,17 @@ namespace InventoryOrganizingFeatures
                 .Where(param => !param.IsNullOrEmpty()) // filter out empty left-over params
                 .ToArray();
 
-            // If params contain only FoundInRaid or NotFoundInRaid param then add Default param to the beginning.
-            if (result.Length == 1 && (result.Contains(OrganizedContainer.ParamFoundInRaid) || result.Contains(OrganizedContainer.ParamNotFoundInRaid)))
+            // If all params are negated - add default category param
+            if (result.Length > 0 && GetCategoryParams(result).AddRangeToArray(GetNameParams(result)).All(IsNegatedParam))
             {
-                result.Prepend(OrganizedContainer.ParamDefault);
+                result.Prepend(ParamDefault);
             }
-            if (result.Length < 1) result.Prepend(OrganizedContainer.ParamDefault);
+            // If params contain only FoundInRaid or NotFoundInRaid param then add default category param to the beginning.
+            if (result.Length == 1 && (result.Contains(ParamFoundInRaid) || result.Contains(ParamNotFoundInRaid)))
+            {
+                result.Prepend(ParamDefault);
+            }
+            if (result.Length < 1) result.Prepend(ParamDefault);
             return result;
         }
     }

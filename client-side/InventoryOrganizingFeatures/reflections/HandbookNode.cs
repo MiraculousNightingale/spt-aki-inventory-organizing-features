@@ -35,11 +35,11 @@ namespace InventoryOrganizingFeatures.Reflections
             {
                 if (caseSensitive)
                 {
-                    return cat.Localized().Contains(findStr);
+                    return cat.Localized().Equals(findStr);
                 }
                 else
                 {
-                    return cat.Localized().ToLower().Contains(findStr.ToLower());
+                    return cat.Localized().ToLower().Equals(findStr.ToLower());
                 }
             });
         }
