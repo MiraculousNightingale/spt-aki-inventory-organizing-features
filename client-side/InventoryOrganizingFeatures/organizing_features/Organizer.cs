@@ -1,7 +1,9 @@
 ﻿using EFT.InventoryLogic;
 using InventoryOrganizingFeatures.Reflections;
+using System;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -17,22 +19,34 @@ namespace InventoryOrganizingFeatures
         public static Handbook Handbook { get; set; } = null;
         public static Button OrganizeButton { get; set; } = null;
         public static Sprite OrganizeSprite { get; set; } = null;
-        public static void Organize(LootItemClass topLevelItem, InventoryControllerClass controller)
+        public static Task<bool> Organize(LootItemClass topLevelItem, InventoryControllerClass controller)
         {
-            foreach (var grid in topLevelItem.Grids)
+            return Task.Run(() =>
             {
-                var organizedContainers = grid.Items.Where(IsOrganized).Select(item => new OrganizedContainer((LootItemClass)item, topLevelItem, controller)).ToList();
-                foreach (var container in organizedContainers)
+                try
                 {
-                    LogNotif($"Organized Container: {container.TargetItem.LocalizedName()}");
-                    container.Organize();
+                    foreach (var grid in topLevelItem.Grids)
+                    {
+                        var organizedContainers = grid.Items.Where(IsOrganized).Select(item => new OrganizedContainer((LootItemClass)item, topLevelItem, controller)).ToList();
+                        foreach (var container in organizedContainers)
+                        {
+                            LogNotif($"Organized Container: {container.TargetItem.LocalizedName()}");
+                            container.Organize();
+                        }
+                    }
+                    return true;
                 }
-            }
+                catch(Exception ex) 
+                {
+                    NotificationManagerClass.DisplayWarningNotification(ex.Message);
+                    return false;
+                }
+            });
         }
 
         private static void LogNotif(string message)
         {
-            if(Plugin.EnableLogs) NotificationManagerClass.DisplayMessageNotification(message, duration: EFT.Communications.ENotificationDurationType.Infinite);
+            if (Plugin.EnableLogs) NotificationManagerClass.DisplayMessageNotification(message, duration: EFT.Communications.ENotificationDurationType.Infinite);
         }
 
         public static bool IsOrganized(Item item)

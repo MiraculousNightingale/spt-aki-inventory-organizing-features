@@ -52,7 +52,7 @@ namespace InventoryOrganizingFeatures
                     var categoryParams = GetCategoryParams(orgParams);
                     var nameParams = GetNameParams(orgParams);
 
-                    notifMsg += "This item has following organize params:";
+                    notifMsg += "This item's tag has following organize params:";
                     if (HasParamDefault(orgParams))
                     {
                         notifMsg += $"\n  -  Category: default container categories";
@@ -338,11 +338,28 @@ namespace InventoryOrganizingFeatures
 
             OrganizeButton = GameObject.Instantiate(____button, ____button.transform.parent);
             OrganizeButton.onClick.RemoveAllListeners();
+
+            // Use GridSortPanel's progress indicator.
+            var gridSortPanelSetInProgress = __instance
+                .GetType()
+                .GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
+                .Where(method =>
+                {
+                    var args = method.GetParameters();
+                    if(args.Length != 1) return false;
+
+                    var firstParam = args.First();
+                    return firstParam.ParameterType == typeof(bool) && firstParam.Name.Equals("inProgress");
+                })
+                .First(); // let it throw exception if somehow method wasn't found.
+
             OrganizeButton.onClick.AddListener(new UnityEngine.Events.UnityAction(() =>
             {
-                ItemUiContext.Instance.ShowMessageWindow("Do you want to organize all items by tagged containers?", new Action(() =>
+                ItemUiContext.Instance.ShowMessageWindow("Do you want to organize all items by tagged containers?", new Action(async () =>
                 {
-                    Organize(item, controller);
+                    gridSortPanelSetInProgress.Invoke(__instance, new object[] { true });
+                    await Organize(item, controller);
+                    gridSortPanelSetInProgress.Invoke(__instance, new object[] { false });
                 }), new Action(MessageNotifCancel));
             }));
             OrganizeButton.image.sprite = OrganizeSprite;
