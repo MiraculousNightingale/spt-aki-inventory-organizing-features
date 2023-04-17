@@ -84,6 +84,9 @@ namespace InventoryOrganizingFeatures
 
         public bool ItemFitsParams(Item item)
         {
+            // If item is Move Locked - ignore it
+            if(Locker.IsMoveLocked(item)) return false;
+
             // FIR check
             if (ParamsContainFoundInRaid && !item.SpawnedInSession) return false;
             if (ParamsContainNotFoundInRaid && item.SpawnedInSession) return false;
