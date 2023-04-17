@@ -3,6 +3,8 @@ using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
 
 namespace InventoryOrganizingFeatures
 {
@@ -47,23 +49,32 @@ namespace InventoryOrganizingFeatures
             if (Plugin.EnableLogs) NotificationManagerClass.DisplayMessageNotification(message, duration: EFT.Communications.ENotificationDurationType.Infinite);
         }
 
+
+
+        // Keep reflection search outside of the loop for obvious performance reasons.
+        private static string[] sortClassMethods = new string[] { "Sort", "ApplyItemToRevolverDrum", "ApplySingleItemToAddress", "Fold", "CanRecode", "CanFold" };
+        private static Type sortClassType = ReflectionHelper.FindClassTypeByMethodNames(sortClassMethods);
+        private static MethodInfo sortClassMove = AccessTools.Method(sortClassType, "Move");
+        private static FieldInfo resultValue = AccessTools.Field(sortClassMove.ReturnType, "Value");
+        private static MethodInfo controllerRunNetworkTransaction = AccessTools.Method(typeof(InventoryControllerClass), "RunNetworkTransaction");
         public void Organize()
         {
             var validItems = ValidItems;
             LogNotif($"Valid items: {validItems.Count}");
+            //GClass2463 inventoryChanges = new GClass2463(TopLevelItem, Controller);
             foreach (var item in validItems)
             {
                 foreach (var grid in TargetItem.Grids)
                 {
                     var location = grid.FindLocationForItem(item);
                     if (location == null) continue;
+                    
                     // In reference (OnClick from ItemView) simulate = true was used.
-                    var sortClassMethods = new string[] { "Sort", "ApplyItemToRevolverDrum", "ApplySingleItemToAddress", "Fold", "CanRecode", "CanFold" };
-                    var sortClassType = ReflectionHelper.FindClassTypeByMethodNames(sortClassMethods);
-                    var moveResult = AccessTools.Method(sortClassType, "Move").Invoke(null, new object[] { item, location, Controller, true });
+                    var moveResult = sortClassMove.Invoke(null, new object[] { item, location, Controller, true });
                     //var moveResult = GClass2429.Move(item, location, Controller, true);
-                    var moveResultValue = AccessTools.Field(moveResult.GetType(), "Value").GetValue(moveResult);
-                    AccessTools.Method(Controller.GetType(), "RunNetworkTransaction").Invoke(Controller, new object[] { moveResultValue, Type.Missing });
+                    //GClass2429.Tran
+                    var moveResultValue = resultValue.GetValue(moveResult);
+                    controllerRunNetworkTransaction.Invoke(Controller, new object[] { moveResultValue, Type.Missing });
                     //Controller.RunNetworkTransaction(moveResult.Value);
                     LogNotif("Executed move.");
                 }

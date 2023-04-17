@@ -181,7 +181,7 @@ namespace InventoryOrganizingFeatures
 
     }
 
-    internal class PreGClass2166RemoveAll : ModulePatch
+    internal class PreGridClassRemoveAll : ModulePatch
     {
         protected override MethodBase GetTargetMethod()
         {
@@ -206,14 +206,16 @@ namespace InventoryOrganizingFeatures
             {
                 return false;
             }
+            var itemCollectionRemove = AccessTools.Method(itemCollection.GetType(), "Remove");
+            var gridSetLayout = AccessTools.Method(__instance.GetType(), "SetLayout");
             //foreach (var kvp in __instance.ItemCollection.Where(pair => !IsSortLocked(pair.Key)).ToList())
             foreach (var kvp in itemCollection.Where(pair => !IsSortLocked(pair.Key)).ToList())
                 {
                 kvp.Deconstruct(out Item item, out LocationInGrid locationInGrid);
                 //__instance.ItemCollection.Remove(item, __instance);
-                AccessTools.Method(itemCollection.GetType(), "Remove").Invoke(itemCollection, new object[] { item, __instance });
+                itemCollectionRemove.Invoke(itemCollection, new object[] { item, __instance });
                 //__instance.SetLayout(item, locationInGrid, false);
-                AccessTools.Method(__instance.GetType(), "SetLayout").Invoke(__instance, new object[] { item, locationInGrid, false });
+                gridSetLayout.Invoke(__instance, new object[] { item, locationInGrid, false });
             }
 
             var lastLineMethod = __instance // look for method with generic name, called on the last line of RemoveAll()
@@ -406,13 +408,13 @@ namespace InventoryOrganizingFeatures
         private static void PatchPostfix(ref object handbook)
         {
             if (Organizer.Handbook == null) Organizer.Handbook = new Handbook(handbook);
-            Logger.LogMessage($"Elements: {Organizer.Handbook.NodesTree.Count}");
-            var search = Organizer.Handbook.FindNode("5751496424597720a27126da");
-            if (search != null)
-            {
-                Logger.LogMessage($"Found: {search.Data.Name.Localized()}");
-                Logger.LogMessage($"Categories: {string.Join(" > ", search.Category.Select(cat => cat.Localized()))}");
-            }
+            //Logger.LogMessage($"Elements: {Organizer.Handbook.NodesTree.Count}");
+            //var search = Organizer.Handbook.FindNode("5751496424597720a27126da");
+            //if (search != null)
+            //{
+            //    Logger.LogMessage($"Found: {search.Data.Name.Localized()}");
+            //    Logger.LogMessage($"Categories: {string.Join(" > ", search.Category.Select(cat => cat.Localized()))}");
+            //}
         }
     }
 

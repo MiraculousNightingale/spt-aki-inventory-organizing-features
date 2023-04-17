@@ -17,7 +17,7 @@ namespace InventoryOrganizingFeatures
             // Assign tag and show active tags when saving EditTagWindow.
             new PostEditTagWindowShow().Enable();
             // Sort lock
-            new PreGClass2166RemoveAll().Enable(); // Prevent Sorting
+            new PreGridClassRemoveAll().Enable(); // Prevent Sorting
             // Move lock
             new PreItemViewOnPointerDown().Enable(); // Prevent Drag
             new PreItemViewOnBeginDrag().Enable(); // Prevent Drag
