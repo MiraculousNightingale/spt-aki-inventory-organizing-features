@@ -134,7 +134,7 @@ namespace InventoryOrganizingFeatures
                     })
                     .First(); // let it throw exception if somehow the method wasn't found.
                 lastLineMethod.Invoke(__instance, null);
-                NotificationManagerClass.DisplayMessageNotification("Ran the RemoveAll patch");
+                //NotificationManagerClass.DisplayMessageNotification("Ran the RemoveAll patch");
                 return false;
             }
             catch (Exception ex)
