@@ -28,12 +28,12 @@ namespace InventoryOrganizingFeatures
 
         public static bool IsSortLocked(Item item)
         {
-            return item.TryGetItemComponent(out TagComponent tagComponent) && IsSortLocked(tagComponent.Name);
+            return item.TryGetItemComponent(out TagComponent tagComponent) && (IsSortLocked(tagComponent.Name) || IsMoveLocked(tagComponent.Name));
         }
 
         public static bool IsSortLocked(string tagName)
         {
-            return ContainsSeparate(tagName, SortLockTag);
+            return ContainsSeparate(tagName, SortLockTag) || IsMoveLocked(tagName);
         }
 
         private static bool ContainsSeparate(string tagName, string findTag)

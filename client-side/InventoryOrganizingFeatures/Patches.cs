@@ -57,6 +57,10 @@ namespace InventoryOrganizingFeatures
                             var nameParams = GetNameParams(orgParams);
 
                             notifMsg += "This item's tag has following organize params:";
+                            if (HasOrderParam(orgParams))
+                            {
+                                notifMsg += $"\n  -  Order #{GetOrderParam(orgParams).GetValueOrDefault()}";
+                            }
                             if (HasParamDefault(orgParams))
                             {
                                 notifMsg += $"\n  -  Category: default container categories";

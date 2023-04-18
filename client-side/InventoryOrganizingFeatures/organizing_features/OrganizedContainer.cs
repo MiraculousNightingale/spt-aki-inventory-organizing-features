@@ -17,6 +17,7 @@ namespace InventoryOrganizingFeatures
 
         public const string NameParamPrefix = "n:";
         public const char NotParamPrefix = '!';
+        public const string OrderParamPrefix = "#:";
 
         public string[] Params { get; }
         public LootItemClass TargetItem { get; }
@@ -169,7 +170,26 @@ namespace InventoryOrganizingFeatures
 
         public static bool IsCategoryParam(string param)
         {
-            return !IsDoubleDashParam(param) && !IsNameParam(param);
+            return !IsDoubleDashParam(param) && !IsNameParam(param) && !IsOrderParam(param);
+        }
+
+        public static bool IsOrderParam(string param)
+        {
+            return param.StartsWith(OrderParamPrefix);
+        }
+
+        private int? Order
+        {
+            get
+            {
+                var orderStr = Params.Where(IsOrderParam).Select(param => param.Substring(OrderParamPrefix.Length).Trim()).FirstOrDefault();
+                if (orderStr == null) return null;
+                if (int.TryParse(orderStr, out int result))
+                {
+                    return result;
+                }
+                return null;
+            }
         }
 
         private string[] NonDoubleDashParams
@@ -263,6 +283,17 @@ namespace InventoryOrganizingFeatures
             return parameters.Where(IsNameParam).Select(param => param.Substring(NameParamPrefix.Length).Trim()).ToArray();
         }
 
+        public static int? GetOrderParam(string[] parameters)
+        {
+            var orderStr = parameters.Where(IsOrderParam).Select(param => param.Substring(OrderParamPrefix.Length).Trim()).FirstOrDefault();
+            if (orderStr == null) return null;
+            if (int.TryParse(orderStr, out int result))
+            {
+                return result;
+            }
+            return null;
+        }
+
         public static bool HasParamDefault(string[] parameters)
         {
             return parameters.Any(param => param.Equals(ParamDefault)) || GetCategoryParams(parameters).Length < 1;
@@ -275,6 +306,11 @@ namespace InventoryOrganizingFeatures
         public static bool HasParamNotFoundInRaid(string[] parameters)
         {
             return parameters.Any(param => param.Equals(ParamNotFoundInRaid));
+        }
+
+        public static bool HasOrderParam(string[] parameters)
+        {
+            return parameters.Any(IsOrderParam);
         }
 
         private bool DoesntHaveOnlyNameParams
@@ -341,88 +377,98 @@ namespace InventoryOrganizingFeatures
             }
         }
 
-        private bool HasNameParams
-        {
-            get
-            {
-                return NameParams.Length > 0;
-            }
-        }
+        private bool HasExplicitOrder { get { return Order != null; } }
 
         public int CompareTo(OrganizedContainer instance)
         {
-            // If contains default category - later in order
-            var containsOnlyDefaultCmp = HasOnlyDefaultCategory.CompareTo(instance.HasOnlyDefaultCategory);
-            if (containsOnlyDefaultCmp == 0)
+            //NotificationManagerClass.DisplayMessageNotification($"Item order #{Order}", EFT.Communications.ENotificationDurationType.Infinite);
+            // Check for explicit order
+            var hasExplicitOrderCmp = instance.HasExplicitOrder.CompareTo(HasExplicitOrder);
+            if (hasExplicitOrderCmp == 0)
             {
-                //NotificationManagerClass.DisplayMessageNotification($"Both contain default category", EFT.Communications.ENotificationDurationType.Infinite);
-
-                // If contains default category and one of the fir params - earlier in order
-                var onlyOneFirParam = instance.HasDefaultAndOneFirParam.CompareTo(HasDefaultAndOneFirParam);
-                if (onlyOneFirParam == 0)
+                // If both have explicit orders use them for ordering
+                if (HasExplicitOrder && instance.HasExplicitOrder)
                 {
-                    //NotificationManagerClass.DisplayMessageNotification($"Have both fir params or don't have any at all", EFT.Communications.ENotificationDurationType.Infinite);
-
-                    // If has only double dash params - later in order
-                    var notOnlyDoubleDashParams = DoesntHaveOnlyDoubleDashParams.CompareTo(instance.DoesntHaveOnlyDoubleDashParams);
-                    if (notOnlyDoubleDashParams == 0) // if both are false - code below will still return 0, since category and name params count will be the same for both, a 0.
-                    {
-                        // How to compare when both have something other than double dash params
-                        //NotificationManagerClass.DisplayMessageNotification($"Both have something more than double dashes or maybe not", EFT.Communications.ENotificationDurationType.Infinite);
-                        // If doesn't have just name params - later in order. In this case default category(all acceptable items) is used.
-                        var notOnlyNamesParams = DoesntHaveOnlyNameParams.CompareTo(instance.DoesntHaveOnlyNameParams);
-                        if (notOnlyNamesParams == 0)
-                        {
-                            // If both have something other than just name params. That means category params.
-                            if (DoesntHaveOnlyNameParams && instance.DoesntHaveOnlyNameParams)
-                            {
-                                //NotificationManagerClass.DisplayMessageNotification($"Both have more than name params", EFT.Communications.ENotificationDurationType.Infinite);
-
-                                // If has only category params - later in order
-                                var onlyCategoryParams = HasOnlyCategoryParams.CompareTo(instance.HasOnlyCategoryParams);
-                                if (onlyCategoryParams == 0)
-                                {
-                                    // If both have only category params
-                                    if (HasOnlyCategoryParams && instance.HasOnlyCategoryParams)
-                                    {
-                                        //NotificationManagerClass.DisplayMessageNotification($"Reached only category comparison", EFT.Communications.ENotificationDurationType.Infinite);
-                                        return CompareByCategoryParamsTo(instance);
-                                    }
-                                    // If both have category and name params
-                                    else
-                                    {
-                                        // Compare by categories first because they are the most wide.
-                                        // This will make sure that narrower category condition is prioritized.
-                                        var categoryCmp = CompareByCategoryParamsTo(instance);
-                                        if (categoryCmp == 0)
-                                        {
-                                            // Since user most likely won't write many name params,
-                                            // they are semantically narrower than categories, by default.
-                                            // So here finally compare by name params;
-                                            return CompareByNameParamsTo(instance);
-                                        }
-                                        return categoryCmp;
-                                    }
-                                }
-                                return onlyCategoryParams;
-                            }
-                            // If both have only name params
-                            else
-                            {
-                                //NotificationManagerClass.DisplayMessageNotification($"Reached only name comparison", EFT.Communications.ENotificationDurationType.Infinite);
-                                return CompareByNameParamsTo(instance);
-                            }
-                        }
-                        //NotificationManagerClass.DisplayMessageNotification($"Returnin notOnlyNamesParams", EFT.Communications.ENotificationDurationType.Infinite);
-                        return notOnlyNamesParams;
-                    }
-                    //NotificationManagerClass.DisplayMessageNotification($"Returnin notOnlyDoubleDashParams", EFT.Communications.ENotificationDurationType.Infinite);
-                    return notOnlyDoubleDashParams;
+                    //NotificationManagerClass.DisplayMessageNotification($"Reached order comparison", EFT.Communications.ENotificationDurationType.Infinite);
+                    return ((int)Order).CompareTo((int)instance.Order);
                 }
-                return onlyOneFirParam;
+
+                // In all other cases follow implicit ordering rules
+
+                // If contains default category - later in order
+                var containsOnlyDefaultCmp = HasOnlyDefaultCategory.CompareTo(instance.HasOnlyDefaultCategory);
+                if (containsOnlyDefaultCmp == 0)
+                {
+                    //NotificationManagerClass.DisplayMessageNotification($"Both contain default category", EFT.Communications.ENotificationDurationType.Infinite);
+
+                    // If contains default category and one of the fir params - earlier in order
+                    var onlyOneFirParam = instance.HasDefaultAndOneFirParam.CompareTo(HasDefaultAndOneFirParam);
+                    if (onlyOneFirParam == 0)
+                    {
+                        //NotificationManagerClass.DisplayMessageNotification($"Have both fir params or don't have any at all", EFT.Communications.ENotificationDurationType.Infinite);
+
+                        // If has only double dash params - later in order
+                        var notOnlyDoubleDashParams = DoesntHaveOnlyDoubleDashParams.CompareTo(instance.DoesntHaveOnlyDoubleDashParams);
+                        if (notOnlyDoubleDashParams == 0) // if both are false - code below will still return 0, since category and name params count will be the same for both, a 0.
+                        {
+                            // How to compare when both have something other than double dash params
+                            //NotificationManagerClass.DisplayMessageNotification($"Both have something more than double dashes or maybe not", EFT.Communications.ENotificationDurationType.Infinite);
+                            // If doesn't have just name params - later in order. In this case default category(all acceptable items) is used.
+                            var notOnlyNamesParams = DoesntHaveOnlyNameParams.CompareTo(instance.DoesntHaveOnlyNameParams);
+                            if (notOnlyNamesParams == 0)
+                            {
+                                // If both have something other than just name params. That means category params.
+                                if (DoesntHaveOnlyNameParams && instance.DoesntHaveOnlyNameParams)
+                                {
+                                    //NotificationManagerClass.DisplayMessageNotification($"Both have more than name params", EFT.Communications.ENotificationDurationType.Infinite);
+
+                                    // If has only category params - later in order
+                                    var onlyCategoryParams = HasOnlyCategoryParams.CompareTo(instance.HasOnlyCategoryParams);
+                                    if (onlyCategoryParams == 0)
+                                    {
+                                        // If both have only category params
+                                        if (HasOnlyCategoryParams && instance.HasOnlyCategoryParams)
+                                        {
+                                            //NotificationManagerClass.DisplayMessageNotification($"Reached only category comparison", EFT.Communications.ENotificationDurationType.Infinite);
+                                            return CompareByCategoryParamsTo(instance);
+                                        }
+                                        // If both have category and name params
+                                        else
+                                        {
+                                            // Compare by categories first because they are the most wide.
+                                            // This will make sure that narrower category condition is prioritized.
+                                            var categoryCmp = CompareByCategoryParamsTo(instance);
+                                            if (categoryCmp == 0)
+                                            {
+                                                // Since user most likely won't write many name params,
+                                                // they are semantically narrower than categories, by default.
+                                                // So here finally compare by name params;
+                                                return CompareByNameParamsTo(instance);
+                                            }
+                                            return categoryCmp;
+                                        }
+                                    }
+                                    return onlyCategoryParams;
+                                }
+                                // If both have only name params
+                                else
+                                {
+                                    //NotificationManagerClass.DisplayMessageNotification($"Reached only name comparison", EFT.Communications.ENotificationDurationType.Infinite);
+                                    return CompareByNameParamsTo(instance);
+                                }
+                            }
+                            //NotificationManagerClass.DisplayMessageNotification($"Returnin notOnlyNamesParams", EFT.Communications.ENotificationDurationType.Infinite);
+                            return notOnlyNamesParams;
+                        }
+                        //NotificationManagerClass.DisplayMessageNotification($"Returnin notOnlyDoubleDashParams", EFT.Communications.ENotificationDurationType.Infinite);
+                        return notOnlyDoubleDashParams;
+                    }
+                    return onlyOneFirParam;
+                }
+                //NotificationManagerClass.DisplayMessageNotification($"Returning containsDefaultCmp", EFT.Communications.ENotificationDurationType.Infinite);
+                return containsOnlyDefaultCmp;
             }
-            //NotificationManagerClass.DisplayMessageNotification($"Returning containsDefaultCmp", EFT.Communications.ENotificationDurationType.Infinite);
-            return containsOnlyDefaultCmp;
+            return hasExplicitOrderCmp;
         }
 
         public int CompareByCategoryParamsTo(OrganizedContainer instance)
