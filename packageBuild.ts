@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
 // SPT-AKI mods folder path
-const sptAkiVersion = "3.5.5";
+const sptAkiVersion = "3.5.3";
+const targetVersion = "3.5.2-3.5.4";
+const targetVersionPostfix = `.SPT-AKI.${targetVersion}`;
 //const sptAkiMods = `D:/SPT-AKI/SPTARKOV ${sptAkiVersion}/user/mods`;
 const sptAkiBepinex = `D:/SPT-AKI/SPTARKOV ${sptAkiVersion}/BepInEx/plugins`;
 const pluginName = "InventoryOrganizingFeatures";
@@ -93,14 +95,14 @@ console.log(__dirname+"\\dist")
 
 zip({
     source: "*",
-    destination: `../dist_zip/${modName}.zip`,
+    destination: `../dist_zip/${modName}${targetVersionPostfix ?? ""}.zip`,
     cwd: `${__dirname}/dist`
 }).catch(function(err)
 {
     console.error("A bestzip error has occurred: ", err.stack);
 }).then(function()
 {
-    console.log(`Compressed mod package to: /dist/${modName}.zip`);
+    console.log(`Compressed mod package to: /dist/${modName}${targetVersionPostfix ?? ""}.zip`);
 
     // Now that we're done with the compression we can delete the temporary build directory.
     fs.rmSync(`${__dirname}/${modName}`, { force: true, recursive: true });

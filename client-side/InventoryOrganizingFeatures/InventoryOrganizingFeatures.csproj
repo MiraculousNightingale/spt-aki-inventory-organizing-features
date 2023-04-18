@@ -4,10 +4,10 @@
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>InventoryOrganizingFeatures</AssemblyName>
     <Description>Several inventory organizing features.</Description>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
-	<TargetSptAkiVersion>sptaki355</TargetSptAkiVersion>
+	<TargetSptAkiVersion>sptaki353-354</TargetSptAkiVersion>
   </PropertyGroup>
 
   <ItemGroup>

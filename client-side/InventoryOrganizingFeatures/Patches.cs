@@ -274,15 +274,28 @@ namespace InventoryOrganizingFeatures
             try
             {
                 var callerClassType = new StackTrace().GetFrame(2).GetMethod().ReflectedType;
+                //NotificationManagerClass.DisplayMessageNotification($"Caller class {callerClassType.Name}");
+
                 // For Stash panel
+                // TraderDealScreen - when opening trader
+                // SimpleStashPanel - in stash
+                // GridWindow - when opening a container
                 if (callerClassType == typeof(SimpleStashPanel))
                 {
-                    if (OrganizeButton != null)
-                        if (!OrganizeButton.IsDestroyed()) return;
-                    OrganizeButton = SetupOrganizeButton(____button, item, controller);
+                    if (OrganizeButtonStash != null)
+                        if (!OrganizeButtonStash.IsDestroyed()) return;
+                    OrganizeButtonStash = SetupOrganizeButton(____button, item, controller);
                     return;
                 }
-                // For Container view panel
+
+                if (callerClassType == typeof(TraderDealScreen))
+                {
+                    if (OrganizeButtonTrader != null)
+                        if (!OrganizeButtonTrader.IsDestroyed()) return;
+                    OrganizeButtonTrader = SetupOrganizeButton(____button, item, controller);
+                    return;
+                }
+                // For Container view panel (caller class is GridWindow)
                 // Hoping container panel disposes children properly.
                 var orgbtn = SetupOrganizeButton(____button, item, controller);
                 orgbtn.transform.parent.GetChild(orgbtn.transform.parent.childCount - 2).SetAsLastSibling();
@@ -384,11 +397,40 @@ namespace InventoryOrganizingFeatures
         {
             try
             {
-                if (OrganizeButton == null) return;
-                if (OrganizeButton.IsDestroyed()) return;
+                if (OrganizeButtonStash == null) return;
+                if (OrganizeButtonStash.IsDestroyed()) return;
 
-                OrganizeButton.gameObject.SetActive(false);
-                GameObject.Destroy(OrganizeButton);
+                OrganizeButtonStash.gameObject.SetActive(false);
+                GameObject.Destroy(OrganizeButtonStash);
+
+                // Might need it.
+                //GameObject.DestroyImmediate(OrganizeButton);
+                //OrganizeButton = null;
+            }
+            catch (Exception ex)
+            {
+                throw Plugin.ShowErrorNotif(ex);
+            }
+        }
+    }
+
+    internal class PostTraderDealScreenClose : ModulePatch
+    {
+        protected override MethodBase GetTargetMethod()
+        {
+            return AccessTools.Method(typeof(TraderDealScreen), "Close");
+        }
+
+        [PatchPostfix]
+        private static void PatchPostfix()
+        {
+            try
+            {
+                if (OrganizeButtonTrader == null) return;
+                if (OrganizeButtonTrader.IsDestroyed()) return;
+
+                OrganizeButtonTrader.gameObject.SetActive(false);
+                GameObject.Destroy(OrganizeButtonTrader);
 
                 // Might need it.
                 //GameObject.DestroyImmediate(OrganizeButton);

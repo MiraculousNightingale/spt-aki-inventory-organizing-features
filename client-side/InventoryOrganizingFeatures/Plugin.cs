@@ -1,4 +1,5 @@
 ﻿using BepInEx;
+using BepInEx.Logging;
 using System;
 using System.Collections.Generic;
 
@@ -12,6 +13,8 @@ namespace InventoryOrganizingFeatures
         {
             // Plugin startup logic
             Logger.LogInfo($"Plugin {PluginInfo.PLUGIN_GUID} is loaded!");
+            // Assign Logger
+            OrganizedContainer.Logger = Logger;
             // Pull handbook from the init method.
             new PostInitHanbook().Enable();
             // Pre-load image from hideout button for organize button
@@ -28,6 +31,9 @@ namespace InventoryOrganizingFeatures
 
             // Clone sort button and make it an organize button
             new PostGridSortPanelShow().Enable();
+            // Clean up the buttons. Perhaps unnecessary, but I'll leave it here for now
+            new PostSimpleStashPanelClose().Enable();
+            new PostTraderDealScreenClose().Enable();
         }
 
         private static HashSet<string> AlreadyThrownPatches = new HashSet<string>();

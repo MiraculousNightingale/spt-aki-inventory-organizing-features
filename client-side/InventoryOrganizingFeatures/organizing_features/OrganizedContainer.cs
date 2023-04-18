@@ -1,4 +1,5 @@
-﻿using EFT.InventoryLogic;
+﻿using BepInEx.Logging;
+using EFT.InventoryLogic;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
@@ -10,6 +11,8 @@ namespace InventoryOrganizingFeatures
 {
     internal class OrganizedContainer : IComparable<OrganizedContainer>
     {
+        public static ManualLogSource Logger = null;
+
         public const string ParamDefault = "--default";
         public const string ParamFoundInRaid = "--fir";
         public const string ParamNotFoundInRaid = "--not-fir";
@@ -48,7 +51,7 @@ namespace InventoryOrganizingFeatures
 
         private void LogNotif(string message)
         {
-            if (Plugin.EnableLogs) NotificationManagerClass.DisplayMessageNotification(message, duration: EFT.Communications.ENotificationDurationType.Infinite);
+            if (Plugin.EnableLogs) Logger.LogMessage(message);
         }
 
 
@@ -118,7 +121,11 @@ namespace InventoryOrganizingFeatures
             var node = Organizer.Handbook.FindNode(item.TemplateId);
             if (node == null)
             {
-                NotificationManagerClass.DisplayWarningNotification($"InventoryOrganizingFeatures Warning: Coudln't find {item.LocalizedName()} in handbook. Perhaps it's a modded item?");
+                //if (CanAccept(item))
+                //{
+                //    Logger.LogWarning($"InventoryOrganizingFeatures Warning: Coudln't find {item.LocalizedName()} in handbook. Perhaps it's a modded item? It's not a critical error, just a warning.");
+                //    //NotificationManagerClass.DisplayWarningNotification($"InventoryOrganizingFeatures Warning: Coudln't find {item.LocalizedName()} in handbook. Perhaps it's a modded item?");
+                //}
                 return false;
             }
             return PositiveCategoryParams.Any(param => node.CategoryContains(param));
@@ -130,7 +137,11 @@ namespace InventoryOrganizingFeatures
             var node = Organizer.Handbook.FindNode(item.TemplateId);
             if (node == null)
             {
-                NotificationManagerClass.DisplayWarningNotification($"InventoryOrganizingFeatures Warning: Coudln't find {item.LocalizedName()} in handbook. Perhaps it's a modded item?");
+                //if (CanAccept(item))
+                //{
+                //    Logger.LogWarning($"InventoryOrganizingFeatures Warning: Coudln't find {item.LocalizedName()} in handbook. Perhaps it's a modded item? It's not a critical error, just a warning.");
+                //    //NotificationManagerClass.DisplayWarningNotification($"InventoryOrganizingFeatures Warning: Coudln't find {item.LocalizedName()} in handbook. Perhaps it's a modded item?");
+                //}
                 return false;
             }
             return NegatedCategoryParams.All(param => !node.CategoryContains(param));

@@ -20,7 +20,8 @@ namespace InventoryOrganizingFeatures
         public static Regex OrganizeRegex = new(OrganizeTag + " (.*?)" + OrganizeTagEnd);
 
         public static Handbook Handbook { get; set; } = null;
-        public static Button OrganizeButton { get; set; } = null;
+        public static Button OrganizeButtonStash { get; set; } = null;
+        public static Button OrganizeButtonTrader { get; set; } = null;
         public static Sprite OrganizeSprite { get; set; } = null;
         public static void Organize(LootItemClass topLevelItem, InventoryControllerClass controller)
         {
