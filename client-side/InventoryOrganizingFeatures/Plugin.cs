@@ -1,5 +1,6 @@
 ﻿using BepInEx;
 using System;
+using System.Collections.Generic;
 
 namespace InventoryOrganizingFeatures
 {
@@ -29,13 +30,17 @@ namespace InventoryOrganizingFeatures
             new PostGridSortPanelShow().Enable();
         }
 
-
+        private static HashSet<string> AlreadyThrownPatches = new HashSet<string>();
         public static Exception ShowErrorNotif(Exception ex)
         {
+           
+            if (!AlreadyThrownPatches.Add(ex.Source)) return ex;
+
             NotificationManagerClass.DisplayWarningNotification(
                 $"InventoryOrganizingFeatures thew an exception. Perhaps version incompatibility? Exception: {ex.Message}",
                 duration: EFT.Communications.ENotificationDurationType.Infinite
                 );
+
             return ex;
         }
     }

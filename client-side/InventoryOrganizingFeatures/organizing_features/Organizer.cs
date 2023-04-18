@@ -2,6 +2,7 @@
 using HarmonyLib;
 using InventoryOrganizingFeatures.Reflections;
 using System;
+using System.ComponentModel;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -26,10 +27,14 @@ namespace InventoryOrganizingFeatures
             foreach (var grid in topLevelItem.Grids)
             {
                 var organizedContainers = grid.Items.Where(IsOrganized).Select(item => new OrganizedContainer((LootItemClass)item, topLevelItem, controller)).ToList();
+                organizedContainers.Sort();
+                //var inc = 0;
                 foreach (var container in organizedContainers)
                 {
+                    //NotificationManagerClass.DisplayMessageNotification($"Container #{inc}: {string.Join(", ",container.Params)}", duration: EFT.Communications.ENotificationDurationType.Infinite);
                     LogNotif($"Organized Container: {container.TargetItem.LocalizedName()}");
                     container.Organize();
+                    //inc++;
                 }
             }
         }

@@ -34,50 +34,65 @@ namespace InventoryOrganizingFeatures
         [PatchPrefix]
         private static void PatchPrefix(ref EditTagWindow __instance, ref DefaultUIButton ____saveButtonSpawner, ValidationInputField ____tagInput)
         {
-            ____tagInput.characterLimit = 256;
-            ____saveButtonSpawner.OnClick.AddListener(new UnityEngine.Events.UnityAction(() =>
+            try
             {
-                string notifMsg = "";
-                if (IsSortLocked(____tagInput.text)) notifMsg += "This item is Sort Locked.";
-                if (IsMoveLocked(____tagInput.text))
+                ____tagInput.characterLimit = 256;
+                ____saveButtonSpawner.OnClick.AddListener(new UnityEngine.Events.UnityAction(() =>
                 {
-                    if (notifMsg.Length > 0) notifMsg += "\n";
-                    notifMsg += "This item is Move Locked.";
-                }
-                if (IsOrganized(____tagInput.text))
-                {
-                    if (notifMsg.Length > 0) notifMsg += "\n";
-                    // Add pretty notification output
-                    var orgParams = ParseOrganizeParams(____tagInput.text);
-                    var categoryParams = GetCategoryParams(orgParams);
-                    var nameParams = GetNameParams(orgParams);
+                    try
+                    {
+                        string notifMsg = "";
+                        if (IsSortLocked(____tagInput.text)) notifMsg += "This item is Sort Locked.";
+                        if (IsMoveLocked(____tagInput.text))
+                        {
+                            if (notifMsg.Length > 0) notifMsg += "\n";
+                            notifMsg += "This item is Move Locked.";
+                        }
+                        if (IsOrganized(____tagInput.text))
+                        {
+                            if (notifMsg.Length > 0) notifMsg += "\n";
+                            // Add pretty notification output
+                            var orgParams = ParseOrganizeParams(____tagInput.text);
+                            var categoryParams = GetCategoryParams(orgParams);
+                            var nameParams = GetNameParams(orgParams);
 
-                    notifMsg += "This item's tag has following organize params:";
-                    if (HasParamDefault(orgParams))
-                    {
-                        notifMsg += $"\n  -  Category: default container categories";
-                    }
-                    else if (categoryParams.Length > 0)
-                    {
-                        notifMsg += $"\n  -  Category: {string.Join(", ", categoryParams)}";
-                    }
+                            notifMsg += "This item's tag has following organize params:";
+                            if (HasParamDefault(orgParams))
+                            {
+                                notifMsg += $"\n  -  Category: default container categories";
+                            }
+                            else if (categoryParams.Length > 0)
+                            {
+                                notifMsg += $"\n  -  Category: {string.Join(", ", categoryParams)}";
+                            }
 
-                    if (nameParams.Length > 0)
-                    {
-                        notifMsg += $"\n  -  Name: {string.Join(", ", nameParams)}";
-                    }
+                            if (nameParams.Length > 0)
+                            {
+                                notifMsg += $"\n  -  Name: {string.Join(", ", nameParams)}";
+                            }
 
-                    if (HasParamFoundInRaid(orgParams))
-                    {
-                        notifMsg += "\n  -  Only \"Found in raid\".";
+                            if (HasParamFoundInRaid(orgParams))
+                            {
+                                notifMsg += "\n  -  Only \"Found in raid\".";
+                            }
+                            else if (HasParamNotFoundInRaid(orgParams))
+                            {
+                                notifMsg += "\n  -  Only \"Not found in raid.\"";
+                            }
+                        }
+                        if (notifMsg.Length > 0) NotificationManagerClass.DisplayMessageNotification(notifMsg);
                     }
-                    else if (HasParamNotFoundInRaid(orgParams))
+                    catch (Exception ex)
                     {
-                        notifMsg += "\n  -  Only \"Not found in raid.\"";
+                        throw Plugin.ShowErrorNotif(ex);
                     }
-                }
-                if (notifMsg.Length > 0) NotificationManagerClass.DisplayMessageNotification(notifMsg);
-            }));
+                }));
+            }
+            catch (Exception ex)
+            {
+                throw Plugin.ShowErrorNotif(ex);
+            }
+
         }
     }
 
@@ -297,12 +312,19 @@ namespace InventoryOrganizingFeatures
 
             clone.onClick.AddListener(new UnityEngine.Events.UnityAction(() =>
             {
-                ItemUiContext.Instance.ShowMessageWindow("Do you want to organize all items by tagged containers?", new Action(() =>
+                try
                 {
-                    //gridSortPanelSetInProgress.Invoke(__instance, new object[] { true });
-                    Organize(item, controller);
-                    //gridSortPanelSetInProgress.Invoke(__instance, new object[] { false });
-                }), new Action(MessageNotifCancel));
+                    ItemUiContext.Instance.ShowMessageWindow("Do you want to organize all items by tagged containers?", new Action(() =>
+                    {
+                        //gridSortPanelSetInProgress.Invoke(__instance, new object[] { true });
+                        Organize(item, controller);
+                        //gridSortPanelSetInProgress.Invoke(__instance, new object[] { false });
+                    }), new Action(MessageNotifCancel));
+                }
+                catch (Exception ex)
+                {
+                    throw Plugin.ShowErrorNotif(ex);
+                }
             }));
             //clone.image.sprite = OrganizeSprite;
             //clone.gameObject.DestroyAllChildren();
