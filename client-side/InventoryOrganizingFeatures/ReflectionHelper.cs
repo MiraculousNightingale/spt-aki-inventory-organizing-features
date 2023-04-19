@@ -12,7 +12,7 @@ namespace InventoryOrganizingFeatures
     {
         public static Type FindClassTypeByMethodNames(string[] methodNames)
         {
-            return AccessTools.AllTypes().Where(type =>
+            var validClasses = AccessTools.AllTypes().Where(type =>
             {
                 if (type.IsClass)
                 {
@@ -20,18 +20,25 @@ namespace InventoryOrganizingFeatures
                     return methodNames.All(searchedMethodName => methods.Contains(searchedMethodName));
                 }
                 return false;
-            }).FirstOrDefault();
+            });
+            if (validClasses.Count() > 1) throw new AmbiguousMatchException();
+            return validClasses.FirstOrDefault();
         }
 
-        public static MethodInfo FindMethodByArgTypes(object instance, Type[] methodArgTypes)
+        public static MethodInfo FindMethodByArgTypes(object instance, Type[] methodArgTypes, BindingFlags bindingAttr = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
         {
-            return FindMethodByArgTypes(instance.GetType(), methodArgTypes);
+            return FindMethodByArgTypes(instance.GetType(), methodArgTypes, bindingAttr);
         }
 
-        public static MethodInfo FindMethodByArgTypes(Type type, Type[] methodArgTypes)
+        public static MethodInfo FindMethodByArgTypes(Type type, Type[] methodArgTypes, BindingFlags bindingAttr = BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
         {
-            //type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).Where(method => method.)
-            return null;
+            var validMethods = type.GetMethods(bindingAttr).Where(method =>
+            {
+                var parameters = method.GetParameters();
+                return methodArgTypes.All(argType => parameters.Any(param => param.ParameterType == argType));
+            });
+            if(validMethods.Count() > 1) throw new AmbiguousMatchException();
+            return validMethods.FirstOrDefault();
         }
 
         public static T InvokeMethod<T>(object targetObj, string methodName, object[] args, Type[] methodArgTypes = null)

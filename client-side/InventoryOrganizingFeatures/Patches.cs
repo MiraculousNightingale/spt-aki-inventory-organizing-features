@@ -217,16 +217,20 @@ namespace InventoryOrganizingFeatures
         [PatchPostfix]
         private static void PatchPostfix(ref object __instance, ref bool __result)
         {
+            // Seems to throw null-ref exceptions even when versions are compatible
+            // Added some null safety, because the cause can be pretty much anything.
             try
             {
                 if (__instance == null) return;
 
                 //// Make sure to only execute if called for ItemView, OnClick method.
-                var callerMethod = new StackTrace().GetFrame(2).GetMethod();
+                var callerMethod = new StackTrace()?.GetFrame(2)?.GetMethod();
+                if (callerMethod == null) return; // some more wacky null safety
                 if (callerMethod.Name.Equals("OnClick") && callerMethod.ReflectedType == typeof(ItemView))
                 {
                     // instance is actually of type GClass2441 - that's pretty useful. It has lots of info.
                     Item item = AccessTools.Property(__instance.GetType(), "Item").GetValue(__instance) as Item;
+                    if(item == null) return; // null safety
                     if (item.TryGetItemComponent(out TagComponent tagComp))
                     {
                         if (IsMoveLocked(tagComp.Name)) __result = true;
