@@ -1,7 +1,9 @@
 ﻿using EFT.InventoryLogic;
 using HarmonyLib;
 using InventoryOrganizingFeatures.Reflections;
+using InventoryOrganizingFeatures.Reflections.Extensions;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -9,6 +11,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using static InventoryOrganizingFeatures.OrganizedContainer;
+using static InventoryOrganizingFeatures.Reflections.Extensions.LocaleHelper;
 
 namespace InventoryOrganizingFeatures
 {
@@ -25,15 +28,18 @@ namespace InventoryOrganizingFeatures
         public static Sprite OrganizeSprite { get; set; } = null;
         public static void Organize(LootItemClass topLevelItem, InventoryControllerClass controller)
         {
-            foreach (var grid in topLevelItem.Grids)
-            {
-                var organizedContainers = grid.Items.Where(IsOrganized).Select(item => new OrganizedContainer((LootItemClass)item, topLevelItem, controller)).ToList();
+            //foreach (var grid in topLevelItem.Grids) - needs reflection since Grids is a GClass2163 (per SPT-AKI 3.5.3)
+            //foreach (var grid in ReflectionHelper.GetFieldValue<object[]>(topLevelItem, "Grids"))
+            foreach (var grid in topLevelItem.GetFieldValue<object[]>("Grids"))
+                {
+                // reflect grid.Items 
+                var organizedContainers = grid.GetPropertyValue<IEnumerable<Item>>("Items").Where(IsOrganized).Select(item => new OrganizedContainer((LootItemClass)item, topLevelItem, controller)).ToList();
                 organizedContainers.Sort();
                 //var inc = 0;
                 foreach (var container in organizedContainers)
                 {
                     //NotificationManagerClass.DisplayMessageNotification($"Container #{inc}: {string.Join(", ",container.Params)}", duration: EFT.Communications.ENotificationDurationType.Infinite);
-                    LogNotif($"Organized Container: {container.TargetItem.LocalizedName()}");
+                    LogNotif($"Organized Container: {container.TargetItem.RLocalizedName()}");
                     container.Organize();
                     //inc++;
                 }
@@ -87,7 +93,7 @@ namespace InventoryOrganizingFeatures
         public static string[] ParseOrganizeParams(string tagName)
         {
             string organizeStr = OrganizeRegex.Match(tagName).Value;
-            if (organizeStr.IsNullOrEmpty())
+            if (string.IsNullOrEmpty(organizeStr))
             {
                 // If full organize regex match not found - check shortcut is used
                 if (ContainsSeparate(tagName, OrganizeTag))
@@ -102,21 +108,23 @@ namespace InventoryOrganizingFeatures
                 .TrimEnd(OrganizeTagEnd) // remove the closing semicolon
                 .Trim() // trim spaces
                 .Split(OrganizeTagSeparator) // split by defined separator
-                .DoMap(param => param.Trim()) // trim every param
-                .Where(param => !param.IsNullOrEmpty()) // filter out empty left-over params
+                .Select(param => param.Trim()) // trim every param
+                .Where(param => !string.IsNullOrEmpty(param)) // filter out empty left-over params
                 .ToArray();
 
             // If all params are negated - add default category param
             if (result.Length > 0 && GetCategoryParams(result).AddRangeToArray(GetNameParams(result)).All(IsNegatedParam))
             {
-                result.Prepend(ParamDefault);
+                // LINQ Prepend with converison is pretty slow, but since this isn't a loop it should be fine.
+                // Maybe change to something else later.
+                result = result.Prepend(ParamDefault).ToArray();
             }
             // If params contain only FoundInRaid or NotFoundInRaid param then add default category param to the beginning.
             if (result.Length == 1 && (result.Contains(ParamFoundInRaid) || result.Contains(ParamNotFoundInRaid)))
             {
-                result.Prepend(ParamDefault);
+                result = result.Prepend(ParamDefault).ToArray();
             }
-            if (result.Length < 1) result.Prepend(ParamDefault);
+            if (result.Length < 1) result = result.Prepend(ParamDefault).ToArray();
             return result;
         }
     }

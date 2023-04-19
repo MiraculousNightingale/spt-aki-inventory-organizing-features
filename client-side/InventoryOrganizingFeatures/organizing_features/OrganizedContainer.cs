@@ -1,11 +1,12 @@
 ﻿using BepInEx.Logging;
+using static InventoryOrganizingFeatures.Reflections.Extensions.LocaleHelper;
 using EFT.InventoryLogic;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
+using InventoryOrganizingFeatures.Reflections.Extensions;
 
 namespace InventoryOrganizingFeatures
 {
@@ -30,9 +31,9 @@ namespace InventoryOrganizingFeatures
         {
             get
             {
-                LogNotif($"Parent name: {TopLevelItem.LocalizedName()}");
+                LogNotif($"Parent name: {TopLevelItem.RLocalizedName()}");
                 List<Item> result = new List<Item>();
-                foreach (var grid in TopLevelItem.Grids)
+                foreach (var grid in TopLevelItem.RGrids())
                 {
                     // ToList is important, since when organizing we can accidentally affect the iterated enumerable.
                     result.AddRange(grid.Items.Where(ItemFitsParams).ToList());
@@ -69,8 +70,10 @@ namespace InventoryOrganizingFeatures
             //GClass2463 inventoryChanges = new GClass2463(TopLevelItem, Controller);
             foreach (var item in validItems)
             {
-                foreach (var grid in TargetItem.Grids)
+                foreach (var grid in TargetItem.RGrids())
+                //foreach (var grid in ReflectionHelper.GetFieldValue<object[]>(TargetItem, "Grids"))
                 {
+                    //var location = grid.FindLocationForItem(item); - Grid class is also a GClass
                     var location = grid.FindLocationForItem(item);
                     if (location == null) continue;
 
@@ -101,7 +104,7 @@ namespace InventoryOrganizingFeatures
         // Reference GClass2174.CanAccept or just IContainer.CheckItemFilter
         public bool CanAccept(Item item)
         {
-            return TargetItem.Grids.Any(grid => grid.CanAccept(item));
+            return TargetItem.RGrids().Any(grid => grid.CanAccept(item));
         }
 
         private bool ItemPassesCategoryConditions(Item item)
@@ -150,13 +153,13 @@ namespace InventoryOrganizingFeatures
         private bool ItemFitsPositiveNameParams(Item item)
         {
             if (PositiveNameParams.Length < 1) return true;
-            return PositiveNameParams.Any(param => item.LocalizedName().ToLower().Contains(param.ToLower()));
+            return PositiveNameParams.Any(param => item.RLocalizedName().ToLower().Contains(param.ToLower()));
         }
 
         private bool ItemFitsNegatedNameParams(Item item)
         {
             if (NegatedNameParams.Length < 1) return true;
-            return NegatedNameParams.All(param => !item.LocalizedName().ToLower().Contains(param.ToLower()));
+            return NegatedNameParams.All(param => !item.RLocalizedName().ToLower().Contains(param.ToLower()));
         }
 
         public static bool IsPositiveParam(string param)

@@ -21,6 +21,8 @@ using static InventoryOrganizingFeatures.Locker;
 using static InventoryOrganizingFeatures.Organizer;
 using static InventoryOrganizingFeatures.OrganizedContainer;
 using static System.Net.Mime.MediaTypeNames;
+using InventoryOrganizingFeatures.Reflections.Extensions;
+using TMPro;
 
 namespace InventoryOrganizingFeatures
 {
@@ -135,7 +137,9 @@ namespace InventoryOrganizingFeatures
                 //foreach (var kvp in __instance.ItemCollection.Where(pair => !IsSortLocked(pair.Key)).ToList())
                 foreach (var kvp in itemCollection.Where(pair => !IsSortLocked(pair.Key)).ToList())
                 {
-                    kvp.Deconstruct(out Item item, out LocationInGrid locationInGrid);
+                    //kvp.Deconstruct(out Item item, out LocationInGrid locationInGrid); - uses a GClass781 extension
+                    var item = kvp.Key;
+                    var locationInGrid = kvp.Value;
                     //__instance.ItemCollection.Remove(item, __instance);
                     itemCollectionRemove.Invoke(itemCollection, new object[] { item, __instance });
                     //__instance.SetLayout(item, locationInGrid, false);
@@ -230,7 +234,7 @@ namespace InventoryOrganizingFeatures
                 {
                     // instance is actually of type GClass2441 - that's pretty useful. It has lots of info.
                     Item item = AccessTools.Property(__instance.GetType(), "Item").GetValue(__instance) as Item;
-                    if(item == null) return; // null safety
+                    if (item == null) return; // null safety
                     if (item.TryGetItemComponent(out TagComponent tagComp))
                     {
                         if (IsMoveLocked(tagComp.Name)) __result = true;
@@ -335,12 +339,35 @@ namespace InventoryOrganizingFeatures
             {
                 try
                 {
-                    ItemUiContext.Instance.ShowMessageWindow("Do you want to organize all items by tagged containers?", new Action(() =>
+                    //Reflected invoke of ItemUiContext.Instance.ShowMessageWindow() because it returns a GClass2709(as of SPT-AKI 3.5.3);
+                    //If used often, should be moved into a special helper method.
+                    var showMessageWindowArgs = new object[]
                     {
-                        //gridSortPanelSetInProgress.Invoke(__instance, new object[] { true });
-                        Organize(item, controller);
-                        //gridSortPanelSetInProgress.Invoke(__instance, new object[] { false });
-                    }), new Action(MessageNotifCancel));
+                        "Do you want to organize all items by tagged containers?",
+                        new Action(() =>
+                        {
+                            //gridSortPanelSetInProgress.Invoke(__instance, new object[] { true });
+                            Organize(item, controller);
+                            //gridSortPanelSetInProgress.Invoke(__instance, new object[] { false });
+                        }),
+                        new Action(MessageNotifCancel),
+                    };
+                    var showMessageWindowArgTypes = new Type[] 
+                    {
+                        typeof(string), // description
+                        typeof(Action), // acceptAction
+                        typeof(Action), // cancelAction
+                        typeof(string), // caption
+                        typeof(float), // time
+                        typeof(bool), // forceShow
+                        typeof(TextAlignmentOptions), // alignment
+                    };
+                    ReflectionHelper.InvokeMethod(
+                        ItemUiContext.Instance,
+                        "ShowMessageWindow",
+                        showMessageWindowArgs,
+                        showMessageWindowArgTypes
+                    );
                 }
                 catch (Exception ex)
                 {

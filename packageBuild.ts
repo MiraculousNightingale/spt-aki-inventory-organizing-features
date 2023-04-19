@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 // SPT-AKI mods folder path
-const sptAkiVersion = "3.5.3";
-const targetVersion = "3.5.2-3.5.4";
+const sptAkiVersion = "3.5.5";
+const targetVersion = "3.5.5";
 const targetVersionPostfix = `.SPT-AKI.${targetVersion}`;
 //const sptAkiMods = `D:/SPT-AKI/SPTARKOV ${sptAkiVersion}/user/mods`;
 const sptAkiBepinex = `D:/SPT-AKI/SPTARKOV ${sptAkiVersion}/BepInEx/plugins`;

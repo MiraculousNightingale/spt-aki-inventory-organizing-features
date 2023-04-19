@@ -12,12 +12,13 @@ namespace InventoryOrganizingFeatures.Reflections
 
         public Handbook(object instance)
         {
-            Instance = instance;
+            ReflectedInstance = instance;
             ReflectedType = instance.GetType();
-            NodesTree = CreateAndReflectNodesTree();
+            NodesTree = CreateNodesTree();
         }
 
-        private Dictionary<string, HandbookNode> CreateAndReflectNodesTree()
+        // Could be made public, but the nodes tree shouldn't change anyway, constructor assigned property suffices.
+        private Dictionary<string, HandbookNode> CreateNodesTree()
         {
             var result = new Dictionary<string, HandbookNode>();
             foreach (DictionaryEntry node in InvokeMethod<IDictionary>("CreateNodesTree", new object[] {Type.Missing}))

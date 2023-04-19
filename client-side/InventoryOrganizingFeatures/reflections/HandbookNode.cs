@@ -1,5 +1,6 @@
 ﻿using EFT.HandBook;
 using HarmonyLib;
+using InventoryOrganizingFeatures.Reflections.Extensions;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -19,14 +20,14 @@ namespace InventoryOrganizingFeatures.Reflections
 
         public HandbookNode(object instance)
         {
-            Instance = instance;
+            ReflectedInstance = instance;
             ReflectedType = instance.GetType();
 
             Data = GetFieldValue<HandbookData>("Data");
             ChildrenDict = ReflectChildrenDict();
             Children = ChildrenDict.Values;
             Category = GetFieldValue<string[]>("Category");
-            CategoryString = string.Join(" > ", Category.Select(cat => cat.Localized()).ToArray());
+            CategoryString = string.Join(" > ", Category.Select(cat => cat.RLocalized()).ToArray());
         }
 
         public bool CategoryContains(string findStr , bool caseSensitive = false)
@@ -35,11 +36,11 @@ namespace InventoryOrganizingFeatures.Reflections
             {
                 if (caseSensitive)
                 {
-                    return cat.Localized().Equals(findStr);
+                    return cat.RLocalized().Equals(findStr);
                 }
                 else
                 {
-                    return cat.Localized().ToLower().Equals(findStr.ToLower());
+                    return cat.RLocalized().ToLower().Equals(findStr.ToLower());
                 }
             });
         }

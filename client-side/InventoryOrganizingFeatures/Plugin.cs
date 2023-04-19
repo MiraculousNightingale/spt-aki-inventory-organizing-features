@@ -9,8 +9,10 @@ namespace InventoryOrganizingFeatures
     public class Plugin : BaseUnityPlugin
     {
         public static bool EnableLogs = false;
+        public static ManualLogSource GlobalLogger;
         private void Awake()
         {
+            GlobalLogger = Logger;
             // Plugin startup logic
             Logger.LogInfo($"Plugin {PluginInfo.PLUGIN_GUID} is loaded!");
             // Assign Logger
