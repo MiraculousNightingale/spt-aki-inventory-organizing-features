@@ -11,24 +11,34 @@ namespace InventoryOrganizingFeatures.Reflections
     {
         public object ReflectedInstance { get; set; }
         public Type ReflectedType { get; set; }
-        public T GetFieldValue<T>(string fieldName)
+        public T GetFieldValue<T>(string name)
         {
-            return (T)AccessTools.Field(ReflectedType, fieldName).GetValue(ReflectedInstance);
+            return ReflectedInstance.GetFieldValue<T>(name);
         }
 
-        public T GetPropertyValue<T>(string propertyName)
+        public object GetFieldValue(string name)
         {
-            return (T)AccessTools.Property(ReflectedType, propertyName).GetValue(ReflectedInstance);
+            return ReflectedInstance.GetFieldValue(name);
         }
 
-        public T InvokeMethod<T>(string methodName, object[] args = null, Type[] methodArgTypes = null)
+        public T GetPropertyValue<T>(string name)
         {
-            return (T)InvokeMethod(methodName, args, methodArgTypes);
+            return ReflectedInstance.GetPropertyValue<T>(name);
         }
 
-        public object InvokeMethod(string methodName, object[] args = null, Type[] methodArgTypes = null)
+        public object GetPropertyValue(string name)
         {
-            return AccessTools.Method(ReflectedType, methodName, methodArgTypes).Invoke(ReflectedInstance, args);
+            return ReflectedInstance.GetPropertyValue(name);
+        }
+
+        public T InvokeMethod<T>(string name, object[] args = null, Type[] methodArgTypes = null)
+        {
+            return ReflectedInstance.InvokeMethod<T>(name, args, methodArgTypes);
+        }
+
+        public object InvokeMethod(string name, object[] args = null, Type[] methodArgTypes = null)
+        {
+            return ReflectedInstance.InvokeMethod(name, args, methodArgTypes);
         }
     }
 }

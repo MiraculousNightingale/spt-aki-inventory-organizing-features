@@ -31,7 +31,7 @@ namespace InventoryOrganizingFeatures
             //foreach (var grid in topLevelItem.Grids) - needs reflection since Grids is a GClass2163 (per SPT-AKI 3.5.3)
             //foreach (var grid in ReflectionHelper.GetFieldValue<object[]>(topLevelItem, "Grids"))
             foreach (var grid in topLevelItem.GetFieldValue<object[]>("Grids"))
-                {
+            {
                 // reflect grid.Items 
                 var organizedContainers = grid.GetPropertyValue<IEnumerable<Item>>("Items").Where(IsOrganized).Select(item => new OrganizedContainer((LootItemClass)item, topLevelItem, controller)).ToList();
                 organizedContainers.Sort();

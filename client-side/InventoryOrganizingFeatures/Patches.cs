@@ -132,8 +132,10 @@ namespace InventoryOrganizingFeatures
                 {
                     return false;
                 }
-                var itemCollectionRemove = AccessTools.Method(itemCollection.GetType(), "Remove");
-                var gridSetLayout = AccessTools.Method(__instance.GetType(), "SetLayout");
+                //var itemCollectionRemove = AccessTools.Method(itemCollection.GetType(), "Remove");
+                //var gridSetLayout = AccessTools.Method(__instance.GetType(), "SetLayout");
+                var itemCollectionRemove = itemCollection.GetMethod("Remove");
+                var gridSetLayout = __instance.GetMethod("SetLayout");
                 //foreach (var kvp in __instance.ItemCollection.Where(pair => !IsSortLocked(pair.Key)).ToList())
                 foreach (var kvp in itemCollection.Where(pair => !IsSortLocked(pair.Key)).ToList())
                 {
@@ -233,7 +235,8 @@ namespace InventoryOrganizingFeatures
                 if (callerMethod.Name.Equals("OnClick") && callerMethod.ReflectedType == typeof(ItemView))
                 {
                     // instance is actually of type GClass2441 - that's pretty useful. It has lots of info.
-                    Item item = AccessTools.Property(__instance.GetType(), "Item").GetValue(__instance) as Item;
+                    //Item item = AccessTools.Property(__instance.GetType(), "Item").GetValue(__instance) as Item;
+                    Item item = __instance.GetPropertyValue<Item>("Item");
                     if (item == null) return; // null safety
                     if (item.TryGetItemComponent(out TagComponent tagComp))
                     {
@@ -487,7 +490,8 @@ namespace InventoryOrganizingFeatures
             try
             {
                 if (OrganizeSprite != null) return;
-                OrganizeSprite = AccessTools.Field(____hideoutButton.GetType(), "_iconSprite").GetValue(____hideoutButton) as Sprite;
+                //OrganizeSprite = AccessTools.Field(____hideoutButton.GetType(), "_iconSprite").GetValue(____hideoutButton) as Sprite;
+                OrganizeSprite = ____hideoutButton.GetFieldValue<Sprite>("_iconSprite");
             }
             catch (Exception ex)
             {
