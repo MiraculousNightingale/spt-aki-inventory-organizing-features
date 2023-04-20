@@ -81,31 +81,34 @@ namespace InventoryOrganizingFeatures
                     throw Plugin.ShowErrorNotif(ex);
                 }
             }));
-            //clone.image.sprite = OrganizeSprite;
-            //clone.gameObject.DestroyAllChildren();
 
             // For stash panel
-            var childImage = clone.transform.GetChildren().Where(child => child.name.Equals("Image")).FirstOrDefault();
+            var childImage = clone.transform.Find("Image");
             if (childImage != null)
             {
                 //Logger.LogMessage($"Sprite path: {childImage.GetComponent<UnityEngine.UI.Image>().path}")
                 //childImage.GetComponent<UnityEngine.UI.Image>().sprite = OrganizeSprite; - looks badly stretched
                 // Just replace the background image with the new one, sort of looks better.
-                clone.gameObject.DestroyAllChildren();
+                foreach (Transform child in clone.transform)
+                {
+                    GameObject.Destroy(child.gameObject);
+                }
+                clone.transform.DetachChildren();
                 clone.image.sprite = OrganizeSprite;
             }
             else
             {
                 // For container view panel
-                var sortIcon = clone.transform.GetChildren().Where(child => child.name.Equals("SortIcon")).FirstOrDefault();
-                if (sortIcon != null)
+                foreach (Transform child in clone.transform)
                 {
-                    sortIcon.GetComponent<UnityEngine.UI.Image>().sprite = OrganizeSprite;
-                }
-                var text = clone.transform.GetChildren().Where(child => child.name.Equals("Text")).FirstOrDefault();
-                if (text != null)
-                {
-                    text.GetComponent<CustomTextMeshProUGUI>().text = "ORG.";
+                    if (child.name.Equals("SortIcon"))
+                    {
+                        child.GetComponent<UnityEngine.UI.Image>().sprite = OrganizeSprite;
+                    }
+                    if (child.name.Equals("Text"))
+                    {
+                        child.GetComponent<CustomTextMeshProUGUI>().text = "ORG.";
+                    }
                 }
             }
 
@@ -162,17 +165,18 @@ namespace InventoryOrganizingFeatures
             }));
 
             // For container view panel
-            var sortIcon = clone.transform.GetChildren().Where(child => child.name.Equals("SortIcon")).FirstOrDefault();
-            if (sortIcon != null)
+            foreach (Transform child in clone.transform)
             {
-                sortIcon.GetComponent<UnityEngine.UI.Image>().sprite = OrganizeSprite; // change sprite later
+                if (child.name.Equals("SortIcon"))
+                {
+                    child.GetComponent<UnityEngine.UI.Image>().sprite = OrganizeSprite;
+                }
+                if (child.name.Equals("Text"))
+                {
+                    child.GetComponent<CustomTextMeshProUGUI>().text = "\u21e7T/O";
+                }
             }
-            var text = clone.transform.GetChildren().Where(child => child.name.Equals("Text")).FirstOrDefault();
-            if (text != null)
-            {
-                text.GetComponent<CustomTextMeshProUGUI>().text = "\u21e7T/O";
-            }
-
+            
             clone.gameObject.SetActive(true);
 
             return clone;
