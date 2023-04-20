@@ -27,14 +27,14 @@ namespace InventoryOrganizingFeatures
         public string[] Params { get; }
         public LootItemClass TargetItem { get; }
         public InventoryControllerClass Controller { get; }
-        public LootItemClass TopLevelItem { get; }
+        public LootItemClass SourceItem { get; }
         public List<Item> ValidItems
         {
             get
             {
-                LogNotif($"Parent name: {TopLevelItem.RLocalizedName()}");
+                LogNotif($"Parent name: {SourceItem.RLocalizedName()}");
                 List<Item> result = new List<Item>();
-                foreach (var grid in TopLevelItem.RGrids())
+                foreach (var grid in SourceItem.RGrids())
                 {
                     // ToList is important, since when organizing we can accidentally affect the iterated enumerable.
                     result.AddRange(grid.Items.Where(ItemFitsParams).ToList());
@@ -43,12 +43,26 @@ namespace InventoryOrganizingFeatures
             }
         }
 
-        public OrganizedContainer(LootItemClass item, LootItemClass topLevelItem, InventoryControllerClass controller)
+        public List<Item> AllItems
         {
-            TargetItem = item;
+            get
+            {
+                List<Item> result = new List<Item>();
+                foreach (var grid in SourceItem.RGrids())
+                {
+                    // ToList is important, since when organizing we can accidentally affect the iterated enumerable.
+                    result.AddRange(grid.Items.ToList());
+                }
+                return result;
+            }
+        }
+
+        public OrganizedContainer(LootItemClass targetItem, LootItemClass sourceItem, InventoryControllerClass controller)
+        {
+            TargetItem = targetItem;
             Controller = controller;
-            TopLevelItem = topLevelItem;
-            Params = Organizer.ParseOrganizeParams(item);
+            SourceItem = sourceItem;
+            Params = Organizer.ParseOrganizeParams(targetItem);
         }
 
         private void LogNotif(string message)
@@ -60,14 +74,16 @@ namespace InventoryOrganizingFeatures
 
         // Reflections are done by a static ReflectionHelper which uses a cache
         // so using reflections in loop doesn't hurt performance.
-        public void Organize()
+        public void Organize(bool ignoreParams = false)
         {
-            var validItems = ValidItems;
+
+            var validItems = ignoreParams ? AllItems : ValidItems;
             LogNotif($"Valid items: {validItems.Count}");
             //GClass2463 inventoryChanges = new GClass2463(TopLevelItem, Controller);
+            var targetGrids = TargetItem.RGrids(); // take it out of the loop 
             foreach (var validItem in validItems)
             {
-                foreach (var grid in TargetItem.RGrids())
+                foreach (var grid in targetGrids)
                 {
                     // First try "TransferOrMerge" with any other item
                     // If stackable ofcourse.
@@ -102,7 +118,7 @@ namespace InventoryOrganizingFeatures
 
                     // In reference (OnClick from ItemView) simulate = true was used.
                     var moveResult = ItemTransactionHelper.Move(validItem, (ItemAddress)location, Controller, true);
-                    if(moveResult.GetPropertyValue<bool>("Failed")) continue; // skip iteration if transaction failed
+                    if (moveResult.GetPropertyValue<bool>("Failed")) continue; // skip iteration if transaction failed
 
                     // Use reflective invoke, because original method uses a GInerface as parameter
                     _ = Controller.InvokeMethod("RunNetworkTransaction", new object[] { moveResult.GetFieldValue("Value") });
@@ -112,9 +128,10 @@ namespace InventoryOrganizingFeatures
             }
         }
 
-        public static bool CanBeStacked(Item item, Item itemToStackWith){
+        public static bool CanBeStacked(Item item, Item itemToStackWith)
+        {
             return item.SpawnedInSession == itemToStackWith.SpawnedInSession // prevent stacking non-fir with fir items which removes the fir status
-                && item.TemplateId == itemToStackWith.TemplateId 
+                && item.TemplateId == itemToStackWith.TemplateId
                 && itemToStackWith.StackObjectsCount < itemToStackWith.StackMaxSize;
         }
 

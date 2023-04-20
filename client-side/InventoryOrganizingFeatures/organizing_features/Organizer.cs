@@ -23,9 +23,7 @@ namespace InventoryOrganizingFeatures
         public static Regex OrganizeRegex = new(OrganizeTag + " (.*?)" + OrganizeTagEnd);
 
         public static Handbook Handbook { get; set; } = null;
-        public static Button OrganizeButtonStash { get; set; } = null;
-        public static Button OrganizeButtonTrader { get; set; } = null;
-        public static Sprite OrganizeSprite { get; set; } = null;
+        
         public static void Organize(LootItemClass topLevelItem, InventoryControllerClass controller)
         {
             //foreach (var grid in topLevelItem.Grids) - needs reflection since Grids is a GClass2163 (per SPT-AKI 3.5.3)

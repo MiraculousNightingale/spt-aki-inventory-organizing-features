@@ -20,7 +20,7 @@ using UnityEngine.UI;
 using static InventoryOrganizingFeatures.Locker;
 using static InventoryOrganizingFeatures.Organizer;
 using static InventoryOrganizingFeatures.OrganizedContainer;
-using static System.Net.Mime.MediaTypeNames;
+using static InventoryOrganizingFeatures.UserInterfaceElements;
 using InventoryOrganizingFeatures.Reflections.Extensions;
 using TMPro;
 
@@ -114,6 +114,8 @@ namespace InventoryOrganizingFeatures
             return AccessTools.Method(ReflectionHelper.FindClassTypeByMethodNames(gridClassMethods), "RemoveAll");
         }
 
+        // Conditional reimplementation of original method, but with tweaks to ignore "Sort/Move Locked" items
+        // Since the Sort method has a check for "item.CurrentAddress == null", it simply won't touch these items if they weren't removed
         [PatchPrefix]
         private static bool PatchPrefix(ref object __instance)
         {
@@ -126,17 +128,16 @@ namespace InventoryOrganizingFeatures
                 // If method is being called from the static SortClass - run patched code, if not - run default code.
                 if (callerClassType != sortClassType) return true;
 
-                var itemCollection = (IEnumerable<KeyValuePair<Item, LocationInGrid>>)AccessTools.Property(__instance.GetType(), "ItemCollection").GetValue(__instance);
+                var itemCollection = __instance.GetPropertyValue<IEnumerable<KeyValuePair<Item, LocationInGrid>>>("ItemCollection");
                 //if (!__instance.ItemCollection.Any())
                 if (!itemCollection.Any())
                 {
                     return false;
                 }
-                //var itemCollectionRemove = AccessTools.Method(itemCollection.GetType(), "Remove");
-                //var gridSetLayout = AccessTools.Method(__instance.GetType(), "SetLayout");
+
                 var itemCollectionRemove = itemCollection.GetMethod("Remove");
                 var gridSetLayout = __instance.GetMethod("SetLayout");
-                //foreach (var kvp in __instance.ItemCollection.Where(pair => !IsSortLocked(pair.Key)).ToList())
+
                 foreach (var kvp in itemCollection.Where(pair => !IsSortLocked(pair.Key)).ToList())
                 {
                     //kvp.Deconstruct(out Item item, out LocationInGrid locationInGrid); - uses a GClass781 extension
@@ -181,6 +182,7 @@ namespace InventoryOrganizingFeatures
         {
             try
             {
+                // Don't execute original event handler if item IsMoveLocked, otherwise execute.
                 if (IsMoveLocked(__instance.Item)) return false;
                 return true;
             }
@@ -203,6 +205,7 @@ namespace InventoryOrganizingFeatures
         {
             try
             {
+                // Don't execute original event handler if item IsMoveLocked, otherwise execute.
                 if (IsMoveLocked(__instance.Item)) return false;
                 return true;
             }
@@ -270,6 +273,7 @@ namespace InventoryOrganizingFeatures
         {
             try
             {
+                // Don't display warnings if item IsMoveLocked
                 if (IsMoveLocked(item)) displayWarnings = false;
             }
             catch (Exception ex)
@@ -300,23 +304,19 @@ namespace InventoryOrganizingFeatures
                 // GridWindow - when opening a container
                 if (callerClassType == typeof(SimpleStashPanel))
                 {
-                    if (OrganizeButtonStash != null)
-                        if (!OrganizeButtonStash.IsDestroyed()) return;
-                    OrganizeButtonStash = SetupOrganizeButton(____button, item, controller);
+                    PatchForSimpleStashPanel(__instance, controller, item, ____button);
                     return;
                 }
 
                 if (callerClassType == typeof(TraderDealScreen))
                 {
-                    if (OrganizeButtonTrader != null)
-                        if (!OrganizeButtonTrader.IsDestroyed()) return;
-                    OrganizeButtonTrader = SetupOrganizeButton(____button, item, controller);
+                    PatchForTraderDealScreen(__instance, controller, item, ____button);
                     return;
                 }
+
                 // For Container view panel (caller class is GridWindow)
                 // Hoping container panel disposes children properly.
-                var orgbtn = SetupOrganizeButton(____button, item, controller);
-                orgbtn.transform.parent.GetChild(orgbtn.transform.parent.childCount - 2).SetAsLastSibling();
+                PatchForOtherCases(__instance, controller, item, ____button);
             }
             catch (Exception ex)
             {
@@ -324,105 +324,30 @@ namespace InventoryOrganizingFeatures
             }
         }
 
-        private static Button SetupOrganizeButton(Button sourceForCloneButton, LootItemClass item, InventoryControllerClass controller)
+        private static void PatchForSimpleStashPanel(GridSortPanel __instance, InventoryControllerClass controller, LootItemClass item, Button ____button)
         {
-            var clone = GameObject.Instantiate(sourceForCloneButton, sourceForCloneButton.transform.parent);
-            clone.onClick.RemoveAllListeners();
-
-            // - Using async organizing causes issues with UI (index out of bounds)
-            // - so there's no reason to use inProgress indicator.
-            // Use GridSortPanel's progress indicator.
-            //var gridSortPanelSetInProgress = __instance
-            //    .GetType()
-            //    .GetMethods(BindingFlags.Instance | BindingFlags.NonPublic)
-            //    .Where(method =>
-            //    {
-            //        var args = method.GetParameters();
-            //        if(args.Length != 1) return false;
-
-            //        var firstParam = args.First();
-            //        return firstParam.ParameterType == typeof(bool) && firstParam.Name.Equals("inProgress");
-            //    })
-            //    .First(); // let it throw exception if somehow method wasn't found.
-
-            clone.onClick.AddListener(new UnityEngine.Events.UnityAction(() =>
-            {
-                try
-                {
-                    //Reflected invoke of ItemUiContext.Instance.ShowMessageWindow() because it returns a GClass2709(as of SPT-AKI 3.5.3);
-                    //If used often, should be moved into a special helper method.
-                    var showMessageWindowArgs = new object[]
-                    {
-                        "Do you want to organize all items by tagged containers?",
-                        new Action(() =>
-                        {
-                            //gridSortPanelSetInProgress.Invoke(__instance, new object[] { true });
-                            Organize(item, controller);
-                            //gridSortPanelSetInProgress.Invoke(__instance, new object[] { false });
-                        }),
-                        new Action(MessageNotifCancel),
-                    };
-                    var showMessageWindowArgTypes = new Type[]
-                    {
-                        typeof(string), // description
-                        typeof(Action), // acceptAction
-                        typeof(Action), // cancelAction
-                        typeof(string), // caption
-                        typeof(float), // time
-                        typeof(bool), // forceShow
-                        typeof(TextAlignmentOptions), // alignment
-                    };
-                    ReflectionHelper.InvokeMethod(
-                        ItemUiContext.Instance,
-                        "ShowMessageWindow",
-                        showMessageWindowArgs,
-                        showMessageWindowArgTypes
-                    );
-                }
-                catch (Exception ex)
-                {
-                    throw Plugin.ShowErrorNotif(ex);
-                }
-            }));
-            //clone.image.sprite = OrganizeSprite;
-            //clone.gameObject.DestroyAllChildren();
-
-            // For stash panel
-            var childImage = clone.transform.GetChildren().Where(child => child.name.Equals("Image")).FirstOrDefault();
-            if (childImage != null)
-            {
-                //Logger.LogMessage($"Sprite path: {childImage.GetComponent<UnityEngine.UI.Image>().path}")
-                //childImage.GetComponent<UnityEngine.UI.Image>().sprite = OrganizeSprite; - looks badly stretched
-                // Just replace the background image with the new one, sort of looks better.
-                clone.gameObject.DestroyAllChildren();
-                clone.image.sprite = OrganizeSprite;
-            }
-            else
-            {
-                // For container view panel
-                var sortIcon = clone.transform.GetChildren().Where(child => child.name.Equals("SortIcon")).FirstOrDefault();
-                if (sortIcon != null)
-                {
-                    sortIcon.GetComponent<UnityEngine.UI.Image>().sprite = OrganizeSprite;
-                }
-                var text = clone.transform.GetChildren().Where(child => child.name.Equals("Text")).FirstOrDefault();
-                if (text != null)
-                {
-                    text.GetComponent<CustomTextMeshProUGUI>().text = "ORG.";
-                }
-            }
-
-            clone.gameObject.SetActive(true);
-
-
-
-            return clone;
+            if (OrganizeButtonStash != null)
+                if (!OrganizeButtonStash.IsDestroyed()) return;
+            OrganizeButtonStash = SetupOrganizeButton(____button, item, controller);
         }
 
-        private static void MessageNotifCancel()
+        private static void PatchForTraderDealScreen(GridSortPanel __instance, InventoryControllerClass controller, LootItemClass item, Button ____button)
         {
-            // Empty method is used to do nothing and close message window,
-            // since simply passing null doesn't work.
+            if (OrganizeButtonTrader != null)
+                if (!OrganizeButtonTrader.IsDestroyed()) return;
+            OrganizeButtonTrader = SetupOrganizeButton(____button, item, controller);
+        }
+
+        // Hopefully the "other" cases are only GridViewPanels(if I remember the name correctly)
+        private static void PatchForOtherCases(GridSortPanel __instance, InventoryControllerClass controller, LootItemClass item, Button ____button)
+        {
+            // Setup Organize button
+            var orgbtn = SetupOrganizeButton(____button, item, controller);
+            orgbtn.transform.parent.GetChild(orgbtn.transform.parent.childCount - 2).SetAsLastSibling();
+            // Setup Take Out button
+            var takeoutbtn = SetupTakeOutButton(____button, item, controller);
+            takeoutbtn.transform.parent.GetChild(orgbtn.transform.parent.childCount - 2).SetAsLastSibling();
+
         }
     }
 
