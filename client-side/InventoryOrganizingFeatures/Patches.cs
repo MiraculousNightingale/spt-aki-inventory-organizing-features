@@ -223,21 +223,30 @@ namespace InventoryOrganizingFeatures
         [PatchPostfix]
         private static void PatchPostfix(ref object __instance, ref bool __result)
         {
-            // Seems to throw null-ref exceptions even when versions are compatible
-            // Added some null safety, because the cause can be pretty much anything.
             try
             {
                 if (__instance == null) return;
 
-                //// Make sure to only execute if called for ItemView, OnClick method.
-                var callerMethod = new StackTrace()?.GetFrame(2)?.GetMethod();
-                if (callerMethod == null) return; // some more wacky null safety
+                // Make sure to only execute if called for ItemView, OnClick method.
+                var callerMethod = new StackTrace().GetFrame(2).GetMethod();
                 if (callerMethod.Name.Equals("OnClick") && callerMethod.ReflectedType == typeof(ItemView))
                 {
-                    // instance is actually of type GClass2441 - that's pretty useful. It has lots of info.
-                    //Item item = AccessTools.Property(__instance.GetType(), "Item").GetValue(__instance) as Item;
-                    Item item = __instance.GetPropertyValue<Item>("Item");
-                    if (item == null) return; // null safety
+                    Logger.LogMessage($"Instance class: {__instance.GetType()}");
+
+                    Item item = null;
+                    var traverse = Traverse.Create(__instance);
+                    // When __instance is just moved (GClass2441 - SPT AKI 3.5.5)
+                    if (traverse.Property("Item").PropertyExists())
+                        item ??= __instance.GetPropertyValueOrDefault<Item>("Item");
+                    // When __instance is moved and merged(stacked) (GClass2443 - SPT AKI 3.5.5)
+                    if (traverse.Field("Item").FieldExists())
+                        item ??= __instance.GetFieldValueOrDefault<Item>("Item");
+                    if (item == null)
+                    {
+                        Logger.LogWarning($"InventoryOrganizingFeatures Error | Patch@ {__instance.GetType()} Getter of Property \"Failed\": Item is still null. Skipping patch.");
+                        NotificationManagerClass.DisplayWarningNotification($"InventoryOrganizingFeatures Error | {__instance.GetType()} Item is still null. Skipping patch.");
+                        return;
+                    }; // null safety
                     if (item.TryGetItemComponent(out TagComponent tagComp))
                     {
                         if (IsMoveLocked(tagComp.Name)) __result = true;
@@ -355,7 +364,7 @@ namespace InventoryOrganizingFeatures
                         }),
                         new Action(MessageNotifCancel),
                     };
-                    var showMessageWindowArgTypes = new Type[] 
+                    var showMessageWindowArgTypes = new Type[]
                     {
                         typeof(string), // description
                         typeof(Action), // acceptAction

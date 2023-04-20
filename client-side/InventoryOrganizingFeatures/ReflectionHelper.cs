@@ -130,6 +130,7 @@ namespace InventoryOrganizingFeatures
             if (validClasses.Count() > 1) throw new AmbiguousMatchException();
 
             var result = validClasses.FirstOrDefault();
+            if (result == null) throw GetNotFoundException(key);
 
             // Cache if found
             if (result != null)
@@ -161,6 +162,7 @@ namespace InventoryOrganizingFeatures
             if (validClasses.Count() > 1) throw new AmbiguousMatchException();
 
             var result = validClasses.FirstOrDefault();
+            if (result == null) throw GetNotFoundException(key);
 
             // Cache if found
             if (result != null)
@@ -195,6 +197,7 @@ namespace InventoryOrganizingFeatures
             if (validMethods.Count() > 1) throw new AmbiguousMatchException();
 
             var result = validMethods.FirstOrDefault();
+            if (result == null) throw GetNotFoundException(key);
 
             // Cache if found
             if (result != null)
@@ -215,7 +218,8 @@ namespace InventoryOrganizingFeatures
             }
 
             var field = AccessTools.Field(type, name);
-            if (field == null) throw new Exception("ReflectionHelper.GetFieldWithCache | Found field is null.");
+            //var field = type.GetField(name, AccessTools.allDeclared);
+            if (field == null) throw GetNotFoundException(key);
 
             // cache if found
             AddToCache(key, field);
@@ -232,7 +236,8 @@ namespace InventoryOrganizingFeatures
             }
 
             var property = AccessTools.Property(type, name);
-            if (property == null) throw new Exception("ReflectionHelper.GetPropertyWithCache | Found property is null.");
+            //var property = type.GetProperty(name, AccessTools.allDeclared);
+            if(property == null) throw GetNotFoundException(key);
 
             // cache if found
             AddToCache(key, property);
@@ -248,10 +253,17 @@ namespace InventoryOrganizingFeatures
                 return cached;
             }
             var method = AccessTools.Method(type, name, methodArgTypes);
-            if (method == null) throw new Exception("ReflectionHelper.GetMethodWithCache | Found method is null.");
+            //var method = type.GetMethod(name, AccessTools.allDeclared, null, methodArgTypes, null);
+            if (method == null) throw GetNotFoundException(key);
+
             // cache if found
             AddToCache(key, method);
             return method;
+        }
+
+        private static Exception GetNotFoundException(string searchParamsKey)
+        {
+            return new Exception($"ReflectionHelper | Couldn't find member with parameters key {searchParamsKey}.");
         }
 
         public static T InvokeMethod<T>(this Type staticType, string name, object[] args = null, Type[] methodArgTypes = null)
@@ -274,6 +286,7 @@ namespace InventoryOrganizingFeatures
                     args[i] ??= Type.Missing;
                 }
             }
+
             return method.Invoke(null, args);
         }
 
@@ -285,7 +298,7 @@ namespace InventoryOrganizingFeatures
         public static object InvokeMethod(this object targetObj, string name, object[] args = null, Type[] methodArgTypes = null)
         {
             var method = GetMethodWithCache(targetObj.GetType(), name, methodArgTypes);
-            if (method == null) throw new Exception("ReflectionHelper.InvokeMethod | Found method is null.");
+
             var parameters = method.GetParameters();
             // auto-compensate for default parameters if they aren't provided
             // or you'll get "Number of parameters specified does not match..."
@@ -297,6 +310,7 @@ namespace InventoryOrganizingFeatures
                     args[i] ??= Type.Missing;
                 }
             }
+
             return method.Invoke(targetObj, args);
         }
 
@@ -305,10 +319,55 @@ namespace InventoryOrganizingFeatures
             return (T)GetFieldValue(targetObj, name);
         }
 
+        public static bool TryGetFieldValue<T>(this object targetObj, string name, out T value)
+        {
+            try
+            {
+                value = GetFieldValue<T>(targetObj, name);
+                return true;
+            }
+            catch
+            {
+                value = default;
+                return false;
+            }
+        }
+
+        public static T GetFieldValueOrDefault<T>(this object targetObj, string name)
+        {
+            if (TryGetFieldValue<T>(targetObj, name, out T value))
+            {
+                return value;
+            }
+            return default;
+        }
+
         public static object GetFieldValue(this object targetObj, string name)
         {
-            var fieldInfo = GetFieldWithCache(targetObj.GetType(), name);
-            return fieldInfo.GetValue(targetObj);
+            return GetField(targetObj, name).GetValue(targetObj);
+        }
+
+        public static bool TryGetFieldValue(this object targetObj, string name, out object value)
+        {
+            try
+            {
+                value = GetFieldValue(targetObj, name);
+                return true;
+            }
+            catch
+            {
+                value = default;
+                return false;
+            }
+        }
+
+        public static object GetFieldValueOrDefault(this object targetObj, string name)
+        {
+            if (TryGetFieldValue(targetObj, name, out object value))
+            {
+                return value;
+            }
+            return default;
         }
 
         public static T GetPropertyValue<T>(this object targetObj, string name)
@@ -316,10 +375,55 @@ namespace InventoryOrganizingFeatures
             return (T)GetPropertyValue(targetObj, name);
         }
 
+        public static bool TryGetPropertyValue<T>(this object targetObj, string name, out T value)
+        {
+            try
+            {
+                value = GetPropertyValue<T>(targetObj, name);
+                return true;
+            }
+            catch
+            {
+                value = default;
+                return false;
+            }
+        }
+
+        public static T GetPropertyValueOrDefault<T>(this object targetObj, string name)
+        {
+            if(TryGetPropertyValue<T>(targetObj, name, out T value))
+            {
+                return value;
+            }
+            return default;
+        }
+
         public static object GetPropertyValue(this object targetObj, string name)
         {
-            var propertyInfo = GetPropertyWithCache(targetObj.GetType(), name);
-            return propertyInfo.GetValue(targetObj);
+            return GetProperty(targetObj, name).GetValue(targetObj);
+        }
+
+        public static bool TryGetPropertyValue(this object targetObj, string name, out object value)
+        {
+            try
+            {
+                value = GetPropertyValue(targetObj, name);
+                return true;
+            }
+            catch
+            {
+                value = default;
+                return false;
+            }
+        }
+
+        public static object GetPropertyValueOrDefault(this object targetObj, string name)
+        {
+            if (TryGetPropertyValue(targetObj, name, out object value))
+            {
+                return value;
+            }
+            return default;
         }
 
         public static FieldInfo GetField(this object targetObj, string name)
