@@ -1,7 +1,10 @@
 ﻿using BepInEx;
 using BepInEx.Logging;
+using InventoryOrganizingFeatures.Reflections;
+using InventoryOrganizingFeatures.Reflections.Extensions;
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace InventoryOrganizingFeatures
 {
@@ -12,9 +15,19 @@ namespace InventoryOrganizingFeatures
         public static ManualLogSource GlobalLogger;
         private void Awake()
         {
-            GlobalLogger = Logger;
             // Plugin startup logic
             Logger.LogInfo($"Plugin {PluginInfo.PLUGIN_GUID} is loaded!");
+            GlobalLogger = Logger;
+
+            // Pre intialize static reflection classes
+            // since some of "method name" based searches can take a second or so,
+            // and it's pretty noticable when playing (well... being in your stash, doing stuff)
+            // E.g. First time you click on the "Organize" button it hangs for about a second.
+            // Every other time is quick.
+            RuntimeHelpers.RunClassConstructor(typeof(ContainerHelper).TypeHandle);
+            RuntimeHelpers.RunClassConstructor(typeof(LocaleHelper).TypeHandle);
+            RuntimeHelpers.RunClassConstructor(typeof(ItemTransactionHelper).TypeHandle); // this one especially.
+
             // Assign Logger
             OrganizedContainer.Logger = Logger;
             // Pull handbook from the init method.
