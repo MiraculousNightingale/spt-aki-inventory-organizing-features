@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using InventoryOrganizingFeatures.Reflections.Extensions;
+using InventoryOrganizingFeatures.Reflections;
 
 namespace InventoryOrganizingFeatures
 {
@@ -57,36 +58,64 @@ namespace InventoryOrganizingFeatures
 
 
 
-        // Keep reflection search outside of the loop for obvious performance reasons.
-        private static string[] sortClassMethods = new string[] { "Sort", "ApplyItemToRevolverDrum", "ApplySingleItemToAddress", "Fold", "CanRecode", "CanFold" };
-        private static Type sortClassType = ReflectionHelper.FindClassTypeByMethodNames(sortClassMethods);
-        private static MethodInfo sortClassMove = AccessTools.Method(sortClassType, "Move");
-        private static FieldInfo resultValue = AccessTools.Field(sortClassMove.ReturnType, "Value");
-        private static MethodInfo controllerRunNetworkTransaction = AccessTools.Method(typeof(InventoryControllerClass), "RunNetworkTransaction");
+        // Reflections are done by a static ReflectionHelper which uses a cache
+        // so using reflections in loop doesn't hurt performance.
         public void Organize()
         {
             var validItems = ValidItems;
             LogNotif($"Valid items: {validItems.Count}");
             //GClass2463 inventoryChanges = new GClass2463(TopLevelItem, Controller);
-            foreach (var item in validItems)
+            foreach (var validItem in validItems)
             {
                 foreach (var grid in TargetItem.RGrids())
-                //foreach (var grid in ReflectionHelper.GetFieldValue<object[]>(TargetItem, "Grids"))
                 {
-                    //var location = grid.FindLocationForItem(item); - Grid class is also a GClass
-                    var location = grid.FindLocationForItem(item);
-                    if (location == null) continue;
+                    // First try "TransferOrMerge" with any other item
+                    // If stackable ofcourse.
+                    if (validItem.StackMaxSize > 1)
+                    {
+                        // Get only items which can be stacked with validItem
+                        // Since grid items won't be removed, only perhaps added - there's no need to make a .toList() copy.
+                        foreach (var gridItem in grid.Items.Where(item => CanBeStacked(validItem, item)))
+                        {
+                            LogNotif($"StackMerging validItem.StackObjectsCount BEFORE:{validItem.StackObjectsCount}");
+                            if (validItem.StackObjectsCount < 1) break; // break if validItem ran out of items in stack
+
+                            var transferMergeResult = ItemTransactionHelper.TransferOrMerge(validItem, gridItem, Controller, true);
+                            if (transferMergeResult.GetPropertyValue<bool>("Failed"))
+                            {
+                                LogNotif($"StackMerging FAILED TRANSACT AT ITEM COUNT:{validItem.StackObjectsCount}");
+                                LogNotif($"StackMerging FAILED TRANSACT AT TARGET ITEM COUNT:{gridItem.StackObjectsCount}");
+                                continue; // skip iteration if transaction failed
+                            }
+
+                            _ = Controller.InvokeMethod("RunNetworkTransaction", new object[] { transferMergeResult.GetFieldValue("Value") });
+
+                            LogNotif($"StackMerging validItem.StackObjectsCount AFTER:{validItem.StackObjectsCount}");
+                        }
+                    }
+
+                    // Second, after stack related work - try to place and item if it still has elements in stack.
+                    if (validItem.StackObjectsCount < 1) continue; // skip validItem iteration if has no elements in stack left
+
+                    var location = grid.FindLocationForItem(validItem); // actually returns a GClass, but it inherits from ItemAddress
+                    if (location == null) continue; // spik validItem if couldn't fit item
 
                     // In reference (OnClick from ItemView) simulate = true was used.
-                    var moveResult = sortClassMove.Invoke(null, new object[] { item, location, Controller, true });
-                    //var moveResult = GClass2429.Move(item, location, Controller, true);
-                    //GClass2429.Tran
-                    var moveResultValue = resultValue.GetValue(moveResult);
-                    controllerRunNetworkTransaction.Invoke(Controller, new object[] { moveResultValue, Type.Missing });
-                    //Controller.RunNetworkTransaction(moveResult.Value);
-                    LogNotif("Executed move.");
+                    var moveResult = ItemTransactionHelper.Move(validItem, (ItemAddress)location, Controller, true);
+                    if(moveResult.GetPropertyValue<bool>("Failed")) continue; // skip iteration if transaction failed
+
+                    // Use reflective invoke, because original method uses a GInerface as parameter
+                    _ = Controller.InvokeMethod("RunNetworkTransaction", new object[] { moveResult.GetFieldValue("Value") });
+
+                    LogNotif("Executed one iteration of organizing.");
                 }
             }
+        }
+
+        public static bool CanBeStacked(Item item, Item itemToStackWith){
+            return item.SpawnedInSession == itemToStackWith.SpawnedInSession // prevent stacking non-fir with fir items which removes the fir status
+                && item.TemplateId == itemToStackWith.TemplateId 
+                && itemToStackWith.StackObjectsCount < itemToStackWith.StackMaxSize;
         }
 
         public bool ItemFitsParams(Item item)

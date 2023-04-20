@@ -30,10 +30,10 @@ namespace InventoryOrganizingFeatures
         {
             //foreach (var grid in topLevelItem.Grids) - needs reflection since Grids is a GClass2163 (per SPT-AKI 3.5.3)
             //foreach (var grid in ReflectionHelper.GetFieldValue<object[]>(topLevelItem, "Grids"))
-            foreach (var grid in topLevelItem.GetFieldValue<object[]>("Grids"))
+            foreach (var grid in topLevelItem.RGrids())
             {
                 // reflect grid.Items 
-                var organizedContainers = grid.GetPropertyValue<IEnumerable<Item>>("Items").Where(IsOrganized).Select(item => new OrganizedContainer((LootItemClass)item, topLevelItem, controller)).ToList();
+                var organizedContainers = grid.Items.Where(IsOrganized).Select(item => new OrganizedContainer((LootItemClass)item, topLevelItem, controller)).ToList();
                 organizedContainers.Sort();
                 //var inc = 0;
                 foreach (var container in organizedContainers)
@@ -48,7 +48,7 @@ namespace InventoryOrganizingFeatures
 
         private static void LogNotif(string message)
         {
-            if (Plugin.EnableLogs) NotificationManagerClass.DisplayMessageNotification(message, duration: EFT.Communications.ENotificationDurationType.Infinite);
+            if (Plugin.EnableLogs) Plugin.GlobalLogger.LogMessage(message);
         }
 
         public static bool IsOrganized(Item item)

@@ -10,10 +10,12 @@ namespace InventoryOrganizingFeatures
 {
     /// <summary>
     /// Extension and helper class to simplify reflection.
+    /// Also uses cache which allows using reflection in loops without performance loss.
     /// </summary>
     internal static class ReflectionHelper
     {
         // public static Type FindClassType()
+
         private static Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
         private static Dictionary<string, FieldInfo> FieldCache = new Dictionary<string, FieldInfo>();
         private static Dictionary<string, PropertyInfo> PropertyCache = new Dictionary<string, PropertyInfo>();

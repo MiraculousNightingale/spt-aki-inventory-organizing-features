@@ -36,6 +36,8 @@ namespace InventoryOrganizingFeatures
             // Clean up the buttons. Perhaps unnecessary, but I'll leave it here for now
             new PostSimpleStashPanelClose().Enable();
             new PostTraderDealScreenClose().Enable();
+
+            //new PreGClass2429QuickFindAppropriatePlace().Enable();
         }
 
         private static HashSet<string> AlreadyThrownPatches = new HashSet<string>();

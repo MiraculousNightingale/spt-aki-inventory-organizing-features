@@ -231,8 +231,6 @@ namespace InventoryOrganizingFeatures
                 var callerMethod = new StackTrace().GetFrame(2).GetMethod();
                 if (callerMethod.Name.Equals("OnClick") && callerMethod.ReflectedType == typeof(ItemView))
                 {
-                    Logger.LogMessage($"Instance class: {__instance.GetType()}");
-
                     Item item = null;
                     var traverse = Traverse.Create(__instance);
                     // When __instance is just moved (GClass2441 - SPT AKI 3.5.5)
@@ -244,7 +242,7 @@ namespace InventoryOrganizingFeatures
                     if (item == null)
                     {
                         Logger.LogWarning($"InventoryOrganizingFeatures Error | Patch@ {__instance.GetType()} Getter of Property \"Failed\": Item is still null. Skipping patch.");
-                        NotificationManagerClass.DisplayWarningNotification($"InventoryOrganizingFeatures Error | {__instance.GetType()} Item is still null. Skipping patch.");
+                        NotificationManagerClass.DisplayWarningNotification($"InventoryOrganizingFeatures Error | {__instance.GetType()} Item is still null. You should probably send your bepinex logs to mod developer.");
                         return;
                     }; // null safety
                     if (item.TryGetItemComponent(out TagComponent tagComp))
@@ -534,6 +532,44 @@ namespace InventoryOrganizingFeatures
             {
                 throw Plugin.ShowErrorNotif(ex);
             }
+        }
+    }
+
+    internal class PreGClass2429QuickFindAppropriatePlace : ModulePatch
+    {
+        private static string[] sortClassMethods = new string[] { "Sort", "ApplyItemToRevolverDrum", "ApplySingleItemToAddress", "Fold", "CanRecode", "CanFold" };
+        private static Type sortClassType = ReflectionHelper.FindClassTypeByMethodNames(sortClassMethods);
+        private static int callCounter = 0;
+        protected override MethodBase GetTargetMethod()
+        {
+            return AccessTools.Method(sortClassType, "QuickFindAppropriatePlace");
+        }
+
+        [PatchPostfix]
+        private static void PatchPostfix(Item item, TraderControllerClass controller, IEnumerable<LootItemClass> targets, object order, bool simulate)
+        {
+            ++callCounter;
+            Logger.LogMessage($"!!! CALL NUMBER #{callCounter}");
+            Logger.LogMessage($"-- Item");
+            Logger.LogMessage($"Name: {item.RLocalizedName()}");
+
+            Logger.LogMessage($"-- Controller");
+            Logger.LogMessage($"Name: {controller.Name}");
+            Logger.LogMessage($"ContainerName: {controller.ContainerName}");
+
+            Logger.LogMessage($"-- Targets");
+            foreach(var target in targets)
+            {
+                Logger.LogMessage($"Item name: {target.RLocalizedName()}");
+            }
+
+            Logger.LogMessage($"-- Order");
+            Logger.LogMessage($"Value?: {order}");
+            Logger.LogMessage($"Type: {order.GetType()}");
+
+            Logger.LogMessage($"-- Simulate?");
+            Logger.LogMessage($"Value: {simulate}");
+
         }
     }
 }

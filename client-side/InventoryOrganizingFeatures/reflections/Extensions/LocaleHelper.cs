@@ -15,7 +15,7 @@ namespace InventoryOrganizingFeatures.Reflections.Extensions
     /// </summary>
     internal static class LocaleHelper
     {
-        public static Type ReflectedType { get; set; }
+        public static Type ReflectedType { get; }
         static LocaleHelper()
         {
             var stringExtensionMethods = new string[] {
