@@ -114,6 +114,7 @@ namespace InventoryOrganizingFeatures
             return clone;
         }
 
+        private const string DefaultInventoryId = "55d7217a4bdc2d86028b456d";
         public static Button SetupTakeOutButton(Button sourceForCloneButton, LootItemClass item, InventoryControllerClass controller)
         {
             var clone = GameObject.Instantiate(sourceForCloneButton, sourceForCloneButton.transform.parent);
@@ -130,7 +131,10 @@ namespace InventoryOrganizingFeatures
                         {
                             // Use reverse organizing with ignoreParams = true
                             // When ignoreParams is true it basically just moves items
-                            new OrganizedContainer((LootItemClass)item.Parent.Container.ParentItem, item, controller).Organize(true);
+
+                            // Check if parent is DefaultInventoryId. It's applicable on items which are equipped on PMC.
+                            var parent = item.Parent.Container.ParentItem;
+                            new OrganizedContainer(parent.TemplateId == DefaultInventoryId ? controller.Inventory.Stash :  (LootItemClass)parent, item, controller).Organize(true);
                         }),
                         new Action(DoNothing),
                     };

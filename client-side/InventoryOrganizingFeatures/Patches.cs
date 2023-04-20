@@ -460,41 +460,41 @@ namespace InventoryOrganizingFeatures
         }
     }
 
-    internal class PreGClass2429QuickFindAppropriatePlace : ModulePatch
-    {
-        private static string[] sortClassMethods = new string[] { "Sort", "ApplyItemToRevolverDrum", "ApplySingleItemToAddress", "Fold", "CanRecode", "CanFold" };
-        private static Type sortClassType = ReflectionHelper.FindClassTypeByMethodNames(sortClassMethods);
-        private static int callCounter = 0;
-        protected override MethodBase GetTargetMethod()
-        {
-            return AccessTools.Method(sortClassType, "QuickFindAppropriatePlace");
-        }
+    //internal class PreGClass2429QuickFindAppropriatePlace : ModulePatch
+    //{
+    //    private static string[] sortClassMethods = new string[] { "Sort", "ApplyItemToRevolverDrum", "ApplySingleItemToAddress", "Fold", "CanRecode", "CanFold" };
+    //    private static Type sortClassType = ReflectionHelper.FindClassTypeByMethodNames(sortClassMethods);
+    //    private static int callCounter = 0;
+    //    protected override MethodBase GetTargetMethod()
+    //    {
+    //        return AccessTools.Method(sortClassType, "QuickFindAppropriatePlace");
+    //    }
 
-        [PatchPostfix]
-        private static void PatchPostfix(Item item, TraderControllerClass controller, IEnumerable<LootItemClass> targets, object order, bool simulate)
-        {
-            ++callCounter;
-            Logger.LogMessage($"!!! CALL NUMBER #{callCounter}");
-            Logger.LogMessage($"-- Item");
-            Logger.LogMessage($"Name: {item.RLocalizedName()}");
+    //    [PatchPostfix]
+    //    private static void PatchPostfix(Item item, TraderControllerClass controller, IEnumerable<LootItemClass> targets, object order, bool simulate)
+    //    {
+    //        ++callCounter;
+    //        Logger.LogMessage($"!!! CALL NUMBER #{callCounter}");
+    //        Logger.LogMessage($"-- Item");
+    //        Logger.LogMessage($"Name: {item.RLocalizedName()}");
 
-            Logger.LogMessage($"-- Controller");
-            Logger.LogMessage($"Name: {controller.Name}");
-            Logger.LogMessage($"ContainerName: {controller.ContainerName}");
+    //        Logger.LogMessage($"-- Controller");
+    //        Logger.LogMessage($"Name: {controller.Name}");
+    //        Logger.LogMessage($"ContainerName: {controller.ContainerName}");
 
-            Logger.LogMessage($"-- Targets");
-            foreach(var target in targets)
-            {
-                Logger.LogMessage($"Item name: {target.RLocalizedName()}");
-            }
+    //        Logger.LogMessage($"-- Targets");
+    //        foreach(var target in targets)
+    //        {
+    //            Logger.LogMessage($"Item name: {target.RLocalizedName()}");
+    //        }
 
-            Logger.LogMessage($"-- Order");
-            Logger.LogMessage($"Value?: {order}");
-            Logger.LogMessage($"Type: {order.GetType()}");
+    //        Logger.LogMessage($"-- Order");
+    //        Logger.LogMessage($"Value?: {order}");
+    //        Logger.LogMessage($"Type: {order.GetType()}");
 
-            Logger.LogMessage($"-- Simulate?");
-            Logger.LogMessage($"Value: {simulate}");
+    //        Logger.LogMessage($"-- Simulate?");
+    //        Logger.LogMessage($"Value: {simulate}");
 
-        }
-    }
+    //    }
+    //}
 }
