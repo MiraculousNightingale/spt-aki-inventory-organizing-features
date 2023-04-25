@@ -18,6 +18,7 @@ namespace InventoryOrganizingFeatures
             // Plugin startup logic
             Logger.LogInfo($"Plugin {PluginInfo.PLUGIN_GUID} is loaded!");
             GlobalLogger = Logger;
+            ReflectionHelper.Logger = Logger;
 
             // Pre intialize static reflection classes
             // since some of "method name" based searches can take a second or so,
@@ -56,7 +57,7 @@ namespace InventoryOrganizingFeatures
         private static HashSet<string> AlreadyThrownPatches = new HashSet<string>();
         public static Exception ShowErrorNotif(Exception ex)
         {
-           
+
             if (!AlreadyThrownPatches.Add(ex.Source)) return ex;
 
             NotificationManagerClass.DisplayWarningNotification(

@@ -1,4 +1,6 @@
-﻿using HarmonyLib;
+﻿using BepInEx.Logging;
+using EFT;
+using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,7 +8,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace InventoryOrganizingFeatures
+namespace InventoryOrganizingFeatures.Reflections
 {
     /// <summary>
     /// Extension and helper class to simplify reflection.
@@ -14,6 +16,14 @@ namespace InventoryOrganizingFeatures
     /// </summary>
     internal static class ReflectionHelper
     {
+        public static ManualLogSource Logger { get; set; }
+        private static readonly Assembly PluginAssembly; // should be removed if compiled to a separate assembly
+        private static readonly Assembly TarkovAssembly;
+        static ReflectionHelper()
+        {
+            PluginAssembly = Assembly.GetExecutingAssembly();
+            TarkovAssembly = Assembly.GetAssembly(typeof(TarkovApplication));
+        }
         // public static Type FindClassType()
 
         private static Dictionary<string, Type> TypeCache = new Dictionary<string, Type>();
@@ -111,7 +121,7 @@ namespace InventoryOrganizingFeatures
             throw new Exception($"ReflectionHelper.AddToCache<{typeof(T)}> can't be used with type {typeof(T)}.");
         }
 
-        public static Type FindClassTypeByMethodNames(string[] names)
+        public static Type FindClassTypeByMethodNames(string[] names, Assembly targetAssembly = null, bool searchInAllTypes = false)
         {
             var key = GenerateCacheKey(names);
             // Take from cache if present
@@ -120,16 +130,27 @@ namespace InventoryOrganizingFeatures
                 return cached;
             }
 
-            var validClasses = AccessTools.AllTypes().Where(type =>
+            targetAssembly ??= TarkovAssembly;
+            var types = searchInAllTypes ? AccessTools.AllTypes() : AccessTools.GetTypesFromAssembly(targetAssembly);
+            var validClasses = types.Where(type =>
             {
-                if (type.IsClass)
+                if (!type.Assembly.Equals(PluginAssembly) && type.IsClass)
                 {
                     var methods = AccessTools.GetMethodNames(type);
                     return names.All(searchedMethodName => methods.Contains(searchedMethodName));
                 }
                 return false;
             });
-            if (validClasses.Count() > 1) throw new AmbiguousMatchException();
+
+            if (validClasses.Count() > 1)
+            {
+                Logger.LogWarning($"ReflectionHelper.FindClassTypeByMethodNames [AmbiguousMatch-Key]: {key}");
+                foreach (var validClass in validClasses)
+                {
+                    Logger.LogWarning($"ReflectionHelper.FindClassTypeByMethodNames [AmbiguousMatch]: {validClass.AssemblyQualifiedName}");
+                }
+                throw new AmbiguousMatchException();
+            }
 
             var result = validClasses.FirstOrDefault();
             if (result == null) throw GetNotFoundException(key);
@@ -143,7 +164,7 @@ namespace InventoryOrganizingFeatures
             return result;
         }
 
-        public static Type FindClassTypeByFieldNames(string[] names)
+        public static Type FindClassTypeByFieldNames(string[] names, Assembly targetAssembly = null, bool searchInAllTypes = false)
         {
             var key = GenerateCacheKey(names);
             // Take from cache if present
@@ -152,16 +173,27 @@ namespace InventoryOrganizingFeatures
                 return cached;
             }
 
-            var validClasses = AccessTools.AllTypes().Where(type =>
+            targetAssembly ??= TarkovAssembly;
+            var types = searchInAllTypes ? AccessTools.AllTypes() : AccessTools.GetTypesFromAssembly(targetAssembly);
+            var validClasses = types.Where(type =>
             {
-                if (type.IsClass)
+                if (!type.Assembly.Equals(PluginAssembly) && type.IsClass)
                 {
                     var fields = AccessTools.GetFieldNames(type);
                     return names.All(searchedFieldName => fields.Contains(searchedFieldName));
                 }
                 return false;
             });
-            if (validClasses.Count() > 1) throw new AmbiguousMatchException();
+
+            if (validClasses.Count() > 1)
+            {
+                Logger.LogWarning($"ReflectionHelper.FindClassTypeByFieldNames [AmbiguousMatch-Key]: {key}");
+                foreach (var validClass in validClasses)
+                {
+                    Logger.LogWarning($"ReflectionHelper.FindClassTypeByFieldNames [AmbiguousMatch]: {validClass.AssemblyQualifiedName}");
+                }
+                throw new AmbiguousMatchException();
+            }
 
             var result = validClasses.FirstOrDefault();
             if (result == null) throw GetNotFoundException(key);
@@ -196,7 +228,17 @@ namespace InventoryOrganizingFeatures
                 var parameters = method.GetParameters();
                 return methodArgTypes.All(argType => parameters.Any(param => param.ParameterType == argType));
             });
-            if (validMethods.Count() > 1) throw new AmbiguousMatchException();
+
+            if (validMethods.Count() > 1)
+            {
+                Logger.LogWarning($"ReflectionHelper.FindMethodByArgTypes [AmbiguousMatch-Key]: {key}");
+                Logger.LogWarning($"ReflectionHelper.FindMethodByArgTypes [AmbiguousMatch-Type-AssemblyQualifiedName]: {type.AssemblyQualifiedName}");
+                foreach (var validMethod in validMethods)
+                {
+                    Logger.LogWarning($"ReflectionHelper.FindMethodByArgTypes [AmbiguousMatch]: {validMethod.Name}");
+                }
+                throw new AmbiguousMatchException();
+            }
 
             var result = validMethods.FirstOrDefault();
             if (result == null) throw GetNotFoundException(key);
@@ -239,7 +281,7 @@ namespace InventoryOrganizingFeatures
 
             var property = AccessTools.Property(type, name);
             //var property = type.GetProperty(name, AccessTools.allDeclared);
-            if(property == null) throw GetNotFoundException(key);
+            if (property == null) throw GetNotFoundException(key);
 
             // cache if found
             AddToCache(key, property);
@@ -270,7 +312,7 @@ namespace InventoryOrganizingFeatures
 
         public static T InvokeMethod<T>(this Type staticType, string name, object[] args = null, Type[] methodArgTypes = null)
         {
-            return (T)InvokeMethod(staticType, name, args, methodArgTypes);
+            return (T)staticType.InvokeMethod(name, args, methodArgTypes);
         }
 
         public static object InvokeMethod(this Type staticType, string name, object[] args = null, Type[] methodArgTypes = null)
@@ -292,9 +334,65 @@ namespace InventoryOrganizingFeatures
             return method.Invoke(null, args);
         }
 
+        public static object GetFieldValue(this Type staticType, string name)
+        {
+            return GetField(staticType, name).GetValue(null);
+        }
+
+        public static bool TryGetFieldValue(this Type staticType, string name, out object value)
+        {
+            try
+            {
+                value = staticType.GetFieldValue(name);
+                return true;
+            }
+            catch
+            {
+                value = default;
+                return false;
+            }
+        }
+
+        public static object GetFieldValueOrDefault(this Type staticType, string name)
+        {
+            if (staticType.TryGetFieldValue(name, out object value))
+            {
+                return value;
+            }
+            return default;
+        }
+
+        public static T GetFieldValue<T>(this Type staticType, string name)
+        {
+            return (T)staticType.GetFieldValue(name);
+        }
+
+        public static bool TryGetFieldValue<T>(this Type staticType, string name, out T value)
+        {
+            try
+            {
+                value = staticType.GetFieldValue<T>(name);
+                return true;
+            }
+            catch
+            {
+                value = default;
+                return false;
+            }
+        }
+
+        public static T GetFieldValueOrDefault<T>(this Type staticType, string name)
+        {
+            if (staticType.TryGetFieldValue(name, out T value))
+            {
+                return value;
+            }
+            return default;
+        }
+
         public static T InvokeMethod<T>(this object targetObj, string name, object[] args = null, Type[] methodArgTypes = null)
         {
-            return (T)InvokeMethod(targetObj, name, args, methodArgTypes);
+            return (T)targetObj.InvokeMethod(name, args, methodArgTypes);
         }
 
         public static object InvokeMethod(this object targetObj, string name, object[] args = null, Type[] methodArgTypes = null)
@@ -318,14 +416,14 @@ namespace InventoryOrganizingFeatures
 
         public static T GetFieldValue<T>(this object targetObj, string name)
         {
-            return (T)GetFieldValue(targetObj, name);
+            return (T)targetObj.GetFieldValue(name);
         }
 
         public static bool TryGetFieldValue<T>(this object targetObj, string name, out T value)
         {
             try
             {
-                value = GetFieldValue<T>(targetObj, name);
+                value = targetObj.GetFieldValue<T>(name);
                 return true;
             }
             catch
@@ -337,7 +435,7 @@ namespace InventoryOrganizingFeatures
 
         public static T GetFieldValueOrDefault<T>(this object targetObj, string name)
         {
-            if (TryGetFieldValue<T>(targetObj, name, out T value))
+            if (targetObj.TryGetFieldValue(name, out T value))
             {
                 return value;
             }
@@ -346,14 +444,14 @@ namespace InventoryOrganizingFeatures
 
         public static object GetFieldValue(this object targetObj, string name)
         {
-            return GetField(targetObj, name).GetValue(targetObj);
+            return targetObj.GetField(name).GetValue(targetObj);
         }
 
         public static bool TryGetFieldValue(this object targetObj, string name, out object value)
         {
             try
             {
-                value = GetFieldValue(targetObj, name);
+                value = targetObj.GetFieldValue(name);
                 return true;
             }
             catch
@@ -365,7 +463,7 @@ namespace InventoryOrganizingFeatures
 
         public static object GetFieldValueOrDefault(this object targetObj, string name)
         {
-            if (TryGetFieldValue(targetObj, name, out object value))
+            if (targetObj.TryGetFieldValue(name, out object value))
             {
                 return value;
             }
@@ -374,14 +472,14 @@ namespace InventoryOrganizingFeatures
 
         public static T GetPropertyValue<T>(this object targetObj, string name)
         {
-            return (T)GetPropertyValue(targetObj, name);
+            return (T)targetObj.GetPropertyValue(name);
         }
 
         public static bool TryGetPropertyValue<T>(this object targetObj, string name, out T value)
         {
             try
             {
-                value = GetPropertyValue<T>(targetObj, name);
+                value = targetObj.GetPropertyValue<T>(name);
                 return true;
             }
             catch
@@ -393,7 +491,7 @@ namespace InventoryOrganizingFeatures
 
         public static T GetPropertyValueOrDefault<T>(this object targetObj, string name)
         {
-            if(TryGetPropertyValue<T>(targetObj, name, out T value))
+            if (targetObj.TryGetPropertyValue(name, out T value))
             {
                 return value;
             }
@@ -402,14 +500,14 @@ namespace InventoryOrganizingFeatures
 
         public static object GetPropertyValue(this object targetObj, string name)
         {
-            return GetProperty(targetObj, name).GetValue(targetObj);
+            return targetObj.GetProperty(name).GetValue(targetObj);
         }
 
         public static bool TryGetPropertyValue(this object targetObj, string name, out object value)
         {
             try
             {
-                value = GetPropertyValue(targetObj, name);
+                value = targetObj.GetPropertyValue(name);
                 return true;
             }
             catch
@@ -421,7 +519,7 @@ namespace InventoryOrganizingFeatures
 
         public static object GetPropertyValueOrDefault(this object targetObj, string name)
         {
-            if (TryGetPropertyValue(targetObj, name, out object value))
+            if (targetObj.TryGetPropertyValue(name, out object value))
             {
                 return value;
             }
@@ -441,6 +539,21 @@ namespace InventoryOrganizingFeatures
         public static MethodInfo GetMethod(this object targetObj, string name, Type[] methodArgTypes = null)
         {
             return GetMethodWithCache(targetObj.GetType(), name, methodArgTypes);
+        }
+
+        public static FieldInfo GetField(this Type staticType, string name)
+        {
+            return GetFieldWithCache(staticType, name);
+        }
+
+        public static PropertyInfo GetProperty(this Type staticType, string name)
+        {
+            return GetPropertyWithCache(staticType, name);
+        }
+
+        public static MethodInfo GetMethod(this Type staticType, string name, Type[] methodArgTypes = null)
+        {
+            return GetMethodWithCache(staticType, name, methodArgTypes);
         }
     }
 }

@@ -1,17 +1,10 @@
 ﻿using EFT.UI;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static InventoryOrganizingFeatures.Locker;
 using static InventoryOrganizingFeatures.Organizer;
-using static InventoryOrganizingFeatures.OrganizedContainer;
-using static InventoryOrganizingFeatures.UserInterfaceElements;
-using InventoryOrganizingFeatures.Reflections.Extensions;
+using InventoryOrganizingFeatures.Reflections;
 
 namespace InventoryOrganizingFeatures
 {
