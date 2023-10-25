@@ -269,10 +269,11 @@ namespace InventoryOrganizingFeatures
         }
 
         [PatchPrefix]
-        private static void PatchPrefix(Item item, ref bool displayWarnings)
+        private static void PatchPrefix(object itemContext, ref bool displayWarnings)
         {
             try
             {
+                var item = itemContext.GetFieldValue<Item>("Item");
                 // Don't display warnings if item IsMoveLocked
                 if (IsMoveLocked(item)) displayWarnings = false;
             }
@@ -308,6 +309,9 @@ namespace InventoryOrganizingFeatures
                     return;
                 }
 
+                // Since 3.7.1 (or whenever the new trader ui was)
+                // TraderDealScreen is opened an closed several times when a opens the trade screen.
+                // While the button won't clone itself if it already existrs, this behaviour should be noted.
                 if (callerClassType == typeof(TraderDealScreen))
                 {
                     PatchForTraderDealScreen(__instance, controller, item, ____button);
@@ -380,11 +384,11 @@ namespace InventoryOrganizingFeatures
         }
     }
 
-    internal class PostTraderDealScreenClose : ModulePatch
+    internal class PostTraderScreensGroupClose : ModulePatch
     {
         protected override MethodBase GetTargetMethod()
         {
-            return AccessTools.Method(typeof(TraderDealScreen), "Close");
+            return AccessTools.Method(typeof(TraderScreensGroup), "Close");
         }
 
         [PatchPostfix]

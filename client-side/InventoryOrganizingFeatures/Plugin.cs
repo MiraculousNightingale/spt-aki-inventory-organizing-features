@@ -35,7 +35,7 @@ namespace InventoryOrganizingFeatures
             new PostGridSortPanelShow().Enable();
             // Clean up the buttons. Perhaps unnecessary, but I'll leave it here for now
             new PostSimpleStashPanelClose().Enable();
-            new PostTraderDealScreenClose().Enable();
+            new PostTraderScreensGroupClose().Enable();
 
             //new PreGClass2429QuickFindAppropriatePlace().Enable();
         }
